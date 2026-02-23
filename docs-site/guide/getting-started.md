@@ -38,8 +38,13 @@ await vault.withKey(async (key) => {
 
 ```ts
 const vault = new BYOKVault({
-  maxTokens: 30_000
+  maxTokens: 30_000,
+  hardMinTokens: 5_000,
+  hardMaxTokens: 100_000
 });
+
+// optional: apply user-selected budget inside developer bounds
+vault.setMaxTokens(50_000);
 
 await vault.withKey(
   async (key) => {
@@ -61,5 +66,6 @@ await vault.withKey(
 );
 ```
 
-Only use this when you want per-session token limits.
+Only use this when you want per-session token limits. Runtime overrides are
+available via `setMaxTokens(...)` and constrained by optional hard bounds.
 :::

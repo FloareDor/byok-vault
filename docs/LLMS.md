@@ -36,9 +36,13 @@ Important options:
 - `minPassphraseLength?: number` -> integer >= 1 (default 8)
 - `pbkdf2Iterations?: number` -> integer >= 200000
 - `maxTokens?: number` -> enables circuit breaker if set
+- `hardMinTokens?: number` -> integer >= 1, default `1` when breaker is enabled
+- `hardMaxTokens?: number` -> optional ceiling for runtime updates
 - `devMode?: boolean`
 - `localStorage?: Storage`, `sessionStorage?: Storage`
 - `logger?: { warn(message: string): void }`
+
+`hardMinTokens` / `hardMaxTokens` are only valid when `maxTokens` is configured.
 
 ### Methods
 
@@ -49,6 +53,9 @@ Important options:
 - `getUsage(): number`
 - `getRemainingTokens(): number`
 - `getMaxTokens(): number | null`
+- `setMaxTokens(limit): void`
+- `getHardMinTokens(): number | null`
+- `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
@@ -60,6 +67,8 @@ Important options:
 - `requestedTokens` is pre-flight estimate only.
 - `reportUsage(tokens)` is post-call hard accounting.
 - Breaker blocks the next request when usage already at/over budget.
+- Runtime max token updates are supported via `setMaxTokens(...)`.
+- Runtime max token updates are validated against optional `hardMinTokens` / `hardMaxTokens`.
 - In dev mode, warning is emitted if `withKey` returns successfully without `reportUsage`.
 - If callback throws, missing `reportUsage` warning is not emitted.
 

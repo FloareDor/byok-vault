@@ -39,6 +39,8 @@ export interface BYOKVaultOptions {
   minPassphraseLength?: number;
   pbkdf2Iterations?: number;
   maxTokens?: number;
+  hardMinTokens?: number;
+  hardMaxTokens?: number;
   devMode?: boolean;
   localStorage?: Storage;
   sessionStorage?: Storage;
@@ -92,9 +94,20 @@ export class BYOKVault {
     this.devMode = options.devMode ?? inferDevMode();
     this.logger = options.logger ?? console;
 
+    if (
+      options.maxTokens === undefined &&
+      (options.hardMinTokens !== undefined || options.hardMaxTokens !== undefined)
+    ) {
+      throw new Error(
+        "hardMinTokens and hardMaxTokens require maxTokens to be configured."
+      );
+    }
+
     if (options.maxTokens !== undefined) {
       this.breaker = new CircuitBreaker({
         maxTokens: options.maxTokens,
+        hardMinTokens: options.hardMinTokens,
+        hardMaxTokens: options.hardMaxTokens,
         storage: sessionStorage,
         storageKey: keys.tokenUsage
       });
@@ -187,6 +200,21 @@ export class BYOKVault {
 
   getMaxTokens(): number | null {
     return this.breaker ? this.breaker.getMaxTokens() : null;
+  }
+
+  setMaxTokens(maxTokens: number): void {
+    if (!this.breaker) {
+      throw new CircuitBreakerDisabledError();
+    }
+    this.breaker.setMaxTokens(maxTokens);
+  }
+
+  getHardMinTokens(): number | null {
+    return this.breaker ? this.breaker.getHardMinTokens() : null;
+  }
+
+  getHardMaxTokens(): number | null {
+    return this.breaker ? this.breaker.getHardMaxTokens() : null;
   }
 
   hasStoredKey(): boolean {

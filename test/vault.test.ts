@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   BYOKVault,
+  CircuitBreakerDisabledError,
   CircuitBreakerLimitError,
   KeyNotFoundError,
   PBKDF2PolicyError,
@@ -78,6 +79,67 @@ describe("BYOKVault", () => {
     await expect(
       vault.withKey(async () => "blocked", { requestedTokens: 1 })
     ).rejects.toBeInstanceOf(CircuitBreakerLimitError);
+  });
+
+  it("supports runtime max token updates within developer bounds", async () => {
+    const namespace = uniqueNamespace("runtime-max-tokens");
+    const vault = new BYOKVault({
+      namespace,
+      maxTokens: 100,
+      hardMinTokens: 50,
+      hardMaxTokens: 200,
+      devMode: false
+    });
+    await vault.setKey(API_KEY, PASSPHRASE);
+
+    expect(vault.getMaxTokens()).toBe(100);
+    expect(vault.getHardMinTokens()).toBe(50);
+    expect(vault.getHardMaxTokens()).toBe(200);
+
+    vault.setMaxTokens(150.9);
+    expect(vault.getMaxTokens()).toBe(150);
+
+    await vault.withKey(async () => {
+      vault.reportUsage(150);
+    });
+    expect(vault.getUsage()).toBe(150);
+
+    vault.setMaxTokens(120);
+    await expect(
+      vault.withKey(async () => "blocked", { requestedTokens: 1 })
+    ).rejects.toBeInstanceOf(CircuitBreakerLimitError);
+  });
+
+  it("rejects runtime max token updates outside developer bounds", () => {
+    const namespace = uniqueNamespace("runtime-max-token-bounds");
+    const vault = new BYOKVault({
+      namespace,
+      maxTokens: 100,
+      hardMinTokens: 50,
+      hardMaxTokens: 150
+    });
+
+    expect(() => vault.setMaxTokens(49)).toThrow("greater than or equal to 50");
+    expect(() => vault.setMaxTokens(151)).toThrow(
+      "less than or equal to 150"
+    );
+  });
+
+  it("requires maxTokens when hard token bounds are configured", () => {
+    expect(
+      () =>
+        new BYOKVault({
+          namespace: uniqueNamespace("hard-bounds-without-max"),
+          hardMinTokens: 10
+        })
+    ).toThrow("require maxTokens");
+  });
+
+  it("throws when updating max tokens while breaker is disabled", () => {
+    const vault = new BYOKVault({ namespace: uniqueNamespace("set-max-disabled") });
+    expect(() => vault.setMaxTokens(1_000)).toThrowError(
+      CircuitBreakerDisabledError
+    );
   });
 
   it("warns in dev mode when reportUsage is skipped", async () => {

@@ -48,8 +48,13 @@ await vault.withKey(async (key) => {
 
 ```ts
 const vault = new BYOKVault({
-  maxTokens: 30_000
+  maxTokens: 30_000,
+  hardMinTokens: 5_000,
+  hardMaxTokens: 100_000
 });
+
+// optional: apply user-selected budget inside developer bounds
+vault.setMaxTokens(50_000);
 
 await vault.withKey(
   async (key) => {
@@ -71,7 +76,8 @@ await vault.withKey(
 );
 ```
 
-Only use this when you want per-session token limits.
+Only use this when you want per-session token limits. Runtime overrides are
+available via `setMaxTokens(...)` and constrained by optional hard bounds.
 :::
 
 ## Security Notes
@@ -131,10 +137,14 @@ new BYOKVault(options?)
 - `minPassphraseLength?: number` (default `8`)
 - `pbkdf2Iterations?: number` (default and minimum `200000`)
 - `maxTokens?: number` (turns on circuit breaker)
+- `hardMinTokens?: number` (default `1` when breaker is enabled)
+- `hardMaxTokens?: number` (optional runtime ceiling)
 - `devMode?: boolean`
 - `localStorage?: Storage`
 - `sessionStorage?: Storage`
 - `logger?: { warn(message: string): void }`
+
+`hardMinTokens` / `hardMaxTokens` require `maxTokens`.
 
 ## Methods
 
@@ -145,6 +155,9 @@ new BYOKVault(options?)
 - `getUsage(): number`
 - `getRemainingTokens(): number`
 - `getMaxTokens(): number | null`
+- `setMaxTokens(limit): void`
+- `getHardMinTokens(): number | null`
+- `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`

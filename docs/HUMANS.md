@@ -24,8 +24,13 @@ It is not a backend replacement for high-security threat models with active XSS 
 import { BYOKVault } from "byok-vault";
 
 const vault = new BYOKVault({
-  maxTokens: 30_000
+  maxTokens: 30_000,
+  hardMinTokens: 5_000,
+  hardMaxTokens: 100_000
 });
+
+// Optional: apply a user-selected value in settings UI.
+vault.setMaxTokens(50_000);
 
 await vault.setKey(userApiKey, userPassphrase);
 
@@ -48,6 +53,7 @@ await vault.withKey(
 - Explain passphrase purpose clearly: protects key at rest in browser storage.
 - Enforce strong passphrase UX (default floor is 8 chars, consider stronger copy and meter).
 - Show current token usage and remaining budget if breaker is enabled.
+- If you expose budget controls, keep user input wired through `setMaxTokens(...)`.
 - Provide a visible "reset vault" control wired to `nuke()`.
 
 ## Security Boundaries (Plain English)
@@ -60,6 +66,7 @@ await vault.withKey(
 ## Common Mistakes
 
 - Enabling `maxTokens` but forgetting `reportUsage(tokens)`.
+- Exposing user budget controls without setting `hardMaxTokens` in apps that need an upper cap.
 - Treating `requestedTokens` pre-flight as exact accounting.
 - Assuming this protects against active XSS.
 - Lowering PBKDF2 iterations below `200000` (constructor throws).

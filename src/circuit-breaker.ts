@@ -2,6 +2,8 @@ import { CircuitBreakerLimitError, InvalidUsageReportError } from "./errors.js";
 
 interface CircuitBreakerOptions {
   maxTokens: number;
+  hardMinTokens?: number;
+  hardMaxTokens?: number;
   storage: Storage;
   storageKey: string;
 }
@@ -16,15 +18,36 @@ function parseUsage(raw: string | null): number {
 
 export class CircuitBreaker {
   private usage: number;
-  private readonly maxTokens: number;
+  private maxTokens: number;
+  private readonly hardMinTokens: number;
+  private readonly hardMaxTokens: number | null;
   private readonly storage: Storage;
   private readonly storageKey: string;
 
   constructor(options: CircuitBreakerOptions) {
-    if (!Number.isFinite(options.maxTokens) || options.maxTokens <= 0) {
-      throw new Error("maxTokens must be a finite number greater than zero.");
+    const hardMinTokens = normalizeTokenLimit(
+      options.hardMinTokens ?? 1,
+      "hardMinTokens"
+    );
+    const hardMaxTokens =
+      options.hardMaxTokens === undefined
+        ? null
+        : normalizeTokenLimit(options.hardMaxTokens, "hardMaxTokens");
+    const maxTokens = normalizeTokenLimit(options.maxTokens, "maxTokens");
+
+    if (hardMaxTokens !== null && hardMaxTokens < hardMinTokens) {
+      throw new Error("hardMaxTokens must be greater than or equal to hardMinTokens.");
     }
-    this.maxTokens = Math.floor(options.maxTokens);
+    if (maxTokens < hardMinTokens) {
+      throw new Error(`maxTokens must be greater than or equal to ${hardMinTokens}.`);
+    }
+    if (hardMaxTokens !== null && maxTokens > hardMaxTokens) {
+      throw new Error(`maxTokens must be less than or equal to ${hardMaxTokens}.`);
+    }
+
+    this.maxTokens = maxTokens;
+    this.hardMinTokens = hardMinTokens;
+    this.hardMaxTokens = hardMaxTokens;
     this.storage = options.storage;
     this.storageKey = options.storageKey;
     this.usage = parseUsage(this.storage.getItem(this.storageKey));
@@ -67,6 +90,32 @@ export class CircuitBreaker {
     return this.maxTokens;
   }
 
+  setMaxTokens(maxTokens: number): void {
+    const normalizedMaxTokens = normalizeTokenLimit(maxTokens, "maxTokens");
+    if (normalizedMaxTokens < this.hardMinTokens) {
+      throw new Error(
+        `maxTokens must be greater than or equal to ${this.hardMinTokens}.`
+      );
+    }
+    if (
+      this.hardMaxTokens !== null &&
+      normalizedMaxTokens > this.hardMaxTokens
+    ) {
+      throw new Error(
+        `maxTokens must be less than or equal to ${this.hardMaxTokens}.`
+      );
+    }
+    this.maxTokens = normalizedMaxTokens;
+  }
+
+  getHardMinTokens(): number {
+    return this.hardMinTokens;
+  }
+
+  getHardMaxTokens(): number | null {
+    return this.hardMaxTokens;
+  }
+
   getRemainingTokens(): number {
     return Math.max(this.maxTokens - this.usage, 0);
   }
@@ -75,4 +124,11 @@ export class CircuitBreaker {
     this.usage = 0;
     this.storage.removeItem(this.storageKey);
   }
+}
+
+function normalizeTokenLimit(value: number, fieldName: string): number {
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(`${fieldName} must be a finite number greater than zero.`);
+  }
+  return Math.floor(value);
 }

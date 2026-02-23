@@ -84,8 +84,13 @@ await vault.withKey(async (key) => {
 
 ```ts
 const vault = new BYOKVault({
-  maxTokens: 30_000
+  maxTokens: 30_000,
+  hardMinTokens: 5_000,
+  hardMaxTokens: 100_000
 });
+
+// user-selected runtime override (for example from a settings UI)
+vault.setMaxTokens(50_000);
 
 await vault.withKey(
   async (key) => {
@@ -113,6 +118,8 @@ await vault.withKey(
 - `reportUsage(tokens)` is the hard truth.
 - When limit is exceeded, the **next** request is blocked with a hard error.
 - In dev mode, vault warns if `withKey` returns successfully without `reportUsage`.
+- `setMaxTokens(limit)` lets you adjust the active limit at runtime.
+- `hardMinTokens` and `hardMaxTokens` enforce developer-defined bounds for runtime updates.
 
 ## Provider Usage Parsing Snippets
 
@@ -143,9 +150,13 @@ Options:
 - `minPassphraseLength?: number` default `8`
 - `pbkdf2Iterations?: number` default `200000`
 - `maxTokens?: number` enables circuit breaker
+- `hardMinTokens?: number` default `1` when breaker is enabled
+- `hardMaxTokens?: number` optional ceiling for `setMaxTokens(...)`
 - `devMode?: boolean` defaults to `NODE_ENV !== "production"` when available
 - `localStorage?: Storage` / `sessionStorage?: Storage` for testing/custom storage
 - `logger?: { warn(message: string): void }` custom warning sink
+
+`hardMinTokens` / `hardMaxTokens` require `maxTokens` to be set.
 
 Methods:
 
@@ -156,6 +167,9 @@ Methods:
 - `getUsage(): number`
 - `getRemainingTokens(): number`
 - `getMaxTokens(): number | null`
+- `setMaxTokens(limit): void`
+- `getHardMinTokens(): number | null`
+- `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
