@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Local-First BYOK Sample</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f3ea;
+        --ink: #1f1b16;
+        --muted: #645948;
+        --card: #fff9ee;
+        --line: #d7c8af;
+        --accent: #1d7d64;
+        --accent-2: #ee8d2f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background:
+          radial-gradient(circle at 5% 5%, #ffe9c0 0, transparent 40%),
+          radial-gradient(circle at 95% 0%, #d6f2e8 0, transparent 35%),
+          var(--bg);
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        color: var(--ink);
+      }
+
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 20px 14px 28px;
+      }
+
+      h1 {
+        margin: 0 0 6px;
+        letter-spacing: 0.01em;
+      }
+
+      p {
+        margin: 0 0 16px;
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 12px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: var(--card);
+        padding: 12px;
+      }
+
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      label {
+        display: grid;
+        gap: 4px;
+        font-size: 0.9rem;
+      }
+
+      input {
+        width: 100%;
+        border: 1px solid #c7b79c;
+        border-radius: 8px;
+        padding: 9px 10px;
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        padding: 9px 10px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .primary {
+        background: var(--accent);
+        color: #f4fff9;
+      }
+
+      .secondary {
+        background: var(--accent-2);
+        color: #291905;
+      }
+
+      .ghost {
+        background: #efe5d2;
+        color: #3a2c15;
+      }
+
+      pre,
+      ul {
+        margin: 0;
+      }
+
+      pre {
+        min-height: 170px;
+        max-height: 220px;
+        overflow: auto;
+        border: 1px solid var(--line);
+        background: #fff;
+        border-radius: 8px;
+        padding: 10px;
+        font-size: 0.77rem;
+      }
+
+      ul {
+        list-style: none;
+        padding: 0;
+        display: grid;
+        gap: 7px;
+        max-height: 220px;
+        overflow: auto;
+      }
+
+      li {
+        border: 1px solid #d7ccb8;
+        border-radius: 8px;
+        padding: 7px;
+        font-size: 0.8rem;
+        background: #fff;
+      }
+
+      @media (max-width: 760px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Local-First BYOK Sample</h1>
+      <p>
+        This app uses <code>byok-browser-vault</code> from a package dependency, stores encrypted
+        API keys, and tracks session token budget.
+      </p>
+      <section class="grid">
+        <article class="card stack">
+          <h2>Vault Setup</h2>
+          <label>
+            Passphrase
+            <input id="passphrase" type="password" value="sample-passphrase-123" />
+          </label>
+          <label>
+            API key (dummy)
+            <input id="apiKey" type="text" value="sk-sample-not-real" />
+          </label>
+          <label>
+            Max tokens
+            <input id="maxTokens" type="number" value="900" min="1" />
+          </label>
+          <div class="row">
+            <button id="applyLimit" class="ghost" type="button">Apply Limit</button>
+            <button id="saveKey" class="primary" type="button">Save Key</button>
+            <button id="unlock" class="ghost" type="button">Unlock</button>
+            <button id="nuke" class="secondary" type="button">Nuke</button>
+          </div>
+        </article>
+
+        <article class="card stack">
+          <h2>Gemini Request</h2>
+          <label>
+            Model
+            <input id="model" type="text" value="gemini-2.0-flash" />
+          </label>
+          <label>
+            Prompt
+            <input id="prompt" type="text" value="Write one sentence about local-first AI apps." />
+          </label>
+          <label>
+            Requested tokens (estimate)
+            <input id="requestedTokens" type="number" value="220" min="0" />
+          </label>
+          <div class="row">
+            <button id="simulate" class="primary" type="button">Run Gemini Call</button>
+            <button id="skipReport" class="ghost" type="button">Skip reportUsage</button>
+          </div>
+          <div>Usage: <strong id="usage">0</strong></div>
+          <div>Remaining: <strong id="remaining">0</strong></div>
+          <div>Locked: <strong id="locked">true</strong></div>
+          <label>
+            Gemini response text
+            <pre id="response">(none yet)</pre>
+          </label>
+        </article>
+
+        <article class="card stack">
+          <h2>Encrypted Blob</h2>
+          <pre id="blob">(empty)</pre>
+        </article>
+
+        <article class="card stack">
+          <h2>Event Log</h2>
+          <ul id="events"></ul>
+        </article>
+      </section>
+    </main>
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

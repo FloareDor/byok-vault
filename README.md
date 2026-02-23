@@ -133,3 +133,7 @@ npm run build
 npm run pack:check
 npm run demo
 ```
+
+## Sample Project (Gemini)
+
+See `examples/local-first-byok-sample/README.md` for a separate sample app that uses this package with Gemini API calls.
