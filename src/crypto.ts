@@ -22,7 +22,22 @@ export interface EncryptedConfigBlob extends EncryptedBlobBase {
   version: 2;
 }
 
-export type EncryptedKeyBlob = EncryptedLegacyKeyBlob | EncryptedConfigBlob;
+export interface PasskeyUnlockMetadata {
+  mode: "passkey";
+  credentialId: string;
+  prfSalt: string;
+  rpId?: string;
+}
+
+export interface EncryptedPasskeyConfigBlob extends EncryptedBlobBase {
+  version: 3;
+  unlock: PasskeyUnlockMetadata;
+}
+
+export type EncryptedKeyBlob =
+  | EncryptedLegacyKeyBlob
+  | EncryptedConfigBlob
+  | EncryptedPasskeyConfigBlob;
 
 export interface VaultConfig {
   apiKey: string;
@@ -32,6 +47,12 @@ export interface VaultConfig {
 interface EncryptWithKeyBitsOptions {
   iterations: number;
   salt: Uint8Array;
+}
+
+interface EncryptPasskeyOptions {
+  credentialId: Uint8Array;
+  prfSalt: Uint8Array;
+  rpId?: string;
 }
 
 interface EncryptOptions {
@@ -81,6 +102,12 @@ export async function deriveKeyBits(
     256
   );
   return new Uint8Array(keyBits);
+}
+
+export async function deriveKeyBitsFromSecret(secret: Uint8Array): Promise<Uint8Array> {
+  const cryptoProvider = assertWebCrypto();
+  const digest = await cryptoProvider.subtle.digest("SHA-256", asBufferSource(secret));
+  return new Uint8Array(digest);
 }
 
 async function importAesGcmKey(keyBits: Uint8Array): Promise<CryptoKey> {
@@ -212,6 +239,29 @@ export async function encryptConfigWithKeyBits(
   options: EncryptWithKeyBitsOptions
 ): Promise<EncryptedConfigBlob> {
   return encryptConfigPayloadWithKeyBits(config, keyBits, options);
+}
+
+export async function encryptConfigWithPasskeyMaterial(
+  config: VaultConfig,
+  keyBits: Uint8Array,
+  options: EncryptPasskeyOptions
+): Promise<EncryptedPasskeyConfigBlob> {
+  const encrypted = await encryptWithKeyBits(keyBits, serializeVaultConfig(config));
+  const salt = bytesToBase64(options.prfSalt);
+  return {
+    version: 3,
+    iterations: 0,
+    salt,
+    iv: bytesToBase64(encrypted.iv),
+    ciphertext: bytesToBase64(encrypted.ciphertext),
+    createdAt: new Date().toISOString(),
+    unlock: {
+      mode: "passkey",
+      credentialId: bytesToBase64(options.credentialId),
+      prfSalt: salt,
+      rpId: options.rpId
+    }
+  };
 }
 
 export async function encryptConfig(

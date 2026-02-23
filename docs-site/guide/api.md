@@ -18,6 +18,7 @@ new BYOKVault(options?)
 - `localStorage?: Storage`
 - `sessionStorage?: Storage`
 - `logger?: { warn(message: string): void }`
+- `passkeyAdapter?: PasskeyAdapter`
 
 `hardMinTokens` / `hardMaxTokens` require `maxTokens`.
 
@@ -25,7 +26,9 @@ new BYOKVault(options?)
 
 - `setKey(apiKey, passphrase): Promise<void>`
 - `setConfig(config, passphrase): Promise<void>`
+- `setConfigWithPasskey(config, options): Promise<void>`
 - `unlock(passphrase): Promise<void>`
+- `unlockWithPasskey(options?): Promise<void>`
 - `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
 - `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
 - `reportUsage(tokens): void`
@@ -36,6 +39,7 @@ new BYOKVault(options?)
 - `getHardMinTokens(): number | null`
 - `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
+- `isPasskeyEnrolled(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
 - `lock(): void`
@@ -51,3 +55,6 @@ new BYOKVault(options?)
 - `INVALID_USAGE_REPORT`
 - `CIRCUIT_BREAKER_LIMIT`
 - `CIRCUIT_BREAKER_DISABLED`
+- `PASSKEY_NOT_SUPPORTED`
+- `PASSKEY_NOT_ENROLLED`
+- `PASSKEY_UNLOCK_FAILED`

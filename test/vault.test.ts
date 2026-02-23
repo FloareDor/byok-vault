@@ -8,9 +8,14 @@ import {
   encryptKey,
   KeyNotFoundError,
   PBKDF2PolicyError,
+  PasskeyNotEnrolledError,
+  PasskeyNotSupportedError,
+  PasskeyUnlockFailedError,
+  type PasskeyAdapter,
   VaultLockedError,
   WrongPassphraseError
 } from "../src/index.js";
+import type { PasskeyCreateRequest, PasskeyGetRequest } from "../src/passkey.js";
 
 const API_KEY = "sk-test-do-not-use";
 const PASSPHRASE = "correct horse battery staple";
@@ -18,6 +23,55 @@ const PASSPHRASE = "correct horse battery staple";
 function uniqueNamespace(prefix: string): string {
   const random = Math.random().toString(36).slice(2);
   return `${prefix}-${random}`;
+}
+
+function toBytesKey(bytes: Uint8Array): string {
+  return Array.from(bytes).join(",");
+}
+
+class MockPasskeyAdapter implements PasskeyAdapter {
+  private readonly secrets = new Map<string, Uint8Array>();
+
+  constructor(
+    private readonly options: {
+      supported?: boolean;
+      failGet?: boolean;
+    } = {}
+  ) {}
+
+  isSupported(): boolean {
+    return this.options.supported ?? true;
+  }
+
+  async create(request: PasskeyCreateRequest): Promise<{ credentialId: Uint8Array; prfOutput: Uint8Array }> {
+    const credentialId = new Uint8Array(16);
+    for (let index = 0; index < credentialId.length; index += 1) {
+      const userByte = request.userId[index % request.userId.length] ?? 0;
+      const challengeByte = request.challenge[index % request.challenge.length] ?? 0;
+      credentialId[index] = userByte ^ challengeByte;
+    }
+
+    const secret = new Uint8Array(32);
+    for (let index = 0; index < secret.length; index += 1) {
+      const saltByte = request.prfInput[index % request.prfInput.length] ?? 0;
+      const credentialByte = credentialId[index % credentialId.length] ?? 0;
+      secret[index] = saltByte ^ credentialByte;
+    }
+
+    this.secrets.set(toBytesKey(credentialId), secret);
+    return { credentialId, prfOutput: secret };
+  }
+
+  async get(request: PasskeyGetRequest): Promise<{ prfOutput: Uint8Array }> {
+    if (this.options.failGet) {
+      throw new Error("simulated passkey assertion failure");
+    }
+    const secret = this.secrets.get(toBytesKey(request.credentialId));
+    if (!secret) {
+      throw new Error("credential not found");
+    }
+    return { prfOutput: secret };
+  }
 }
 
 describe("BYOKVault", () => {
@@ -288,6 +342,92 @@ describe("BYOKVault", () => {
     const blob = vault.getEncryptedBlob();
     expect(blob?.version).toBe(2);
     await expect(decryptKey(blob!, PASSPHRASE)).resolves.toBe(API_KEY);
+  });
+
+  it("supports passkey enrollment and unlock flow with metadata config", async () => {
+    const namespace = uniqueNamespace("passkey-enroll-unlock");
+    const adapter = new MockPasskeyAdapter();
+    const vault = new BYOKVault({
+      namespace,
+      devMode: true,
+      passkeyAdapter: adapter
+    });
+
+    await vault.setConfigWithPasskey(
+      {
+        apiKey: API_KEY,
+        provider: "openai",
+        orgId: "org-passkey-1"
+      },
+      {
+        rpName: "BYOK Vault Test",
+        userName: "alice@example.com",
+        userDisplayName: "Alice"
+      }
+    );
+
+    expect(vault.isPasskeyEnrolled()).toBe(true);
+    const raw = localStorage.getItem(`${namespace}:encrypted-key`) ?? "{}";
+    const stored = JSON.parse(raw);
+    expect(stored.version).toBe(3);
+    expect(raw).not.toContain(API_KEY);
+
+    await expect(vault.withKey(async (key) => key)).resolves.toBe(API_KEY);
+    vault.lock();
+    await expect(vault.withKey(async () => "nope")).rejects.toBeInstanceOf(PasskeyUnlockFailedError);
+
+    await vault.unlockWithPasskey();
+    await expect(vault.withConfig(async (config) => config.orgId)).resolves.toBe("org-passkey-1");
+  });
+
+  it("throws PASSKEY_NOT_SUPPORTED when passkey adapter support is unavailable", async () => {
+    const namespace = uniqueNamespace("passkey-not-supported");
+    const vault = new BYOKVault({
+      namespace,
+      devMode: true,
+      passkeyAdapter: new MockPasskeyAdapter({ supported: false })
+    });
+
+    await expect(
+      vault.setConfigWithPasskey(
+        { apiKey: API_KEY },
+        { rpName: "BYOK Vault Test", userName: "bob@example.com" }
+      )
+    ).rejects.toBeInstanceOf(PasskeyNotSupportedError);
+  });
+
+  it("throws PASSKEY_NOT_ENROLLED when unlocking passkey for passphrase vault", async () => {
+    const namespace = uniqueNamespace("passkey-not-enrolled");
+    const vault = new BYOKVault({
+      namespace,
+      devMode: true,
+      passkeyAdapter: new MockPasskeyAdapter()
+    });
+    await vault.setKey(API_KEY, PASSPHRASE);
+
+    await expect(vault.unlockWithPasskey()).rejects.toBeInstanceOf(PasskeyNotEnrolledError);
+  });
+
+  it("throws PASSKEY_UNLOCK_FAILED when assertion cannot resolve credential", async () => {
+    const namespace = uniqueNamespace("passkey-unlock-failed");
+    const enrollVault = new BYOKVault({
+      namespace,
+      devMode: true,
+      passkeyAdapter: new MockPasskeyAdapter()
+    });
+    await enrollVault.setConfigWithPasskey(
+      { apiKey: API_KEY },
+      { rpName: "BYOK Vault Test", userName: "carol@example.com" }
+    );
+
+    sessionStorage.clear();
+    const unlockVault = new BYOKVault({
+      namespace,
+      devMode: true,
+      passkeyAdapter: new MockPasskeyAdapter({ failGet: true })
+    });
+
+    await expect(unlockVault.unlockWithPasskey()).rejects.toBeInstanceOf(PasskeyUnlockFailedError);
   });
 
   it("enforces pbkdf2 iteration floor", () => {

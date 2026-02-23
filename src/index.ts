@@ -3,12 +3,15 @@ export {
   decryptConfigWithKeyBits,
   decryptKey,
   decryptWithKeyBits,
+  deriveKeyBitsFromSecret,
   deriveKeyBits,
   encryptConfig,
   encryptConfigWithKeyBits,
+  encryptConfigWithPasskeyMaterial,
   encryptKey
 } from "./crypto.js";
 export { CircuitBreaker } from "./circuit-breaker.js";
+export { BrowserPasskeyAdapter, createBrowserPasskeyAdapter } from "./passkey.js";
 export { BYOKVault } from "./vault.js";
 export {
   BYOKVaultError,
@@ -17,9 +20,19 @@ export {
   InvalidUsageReportError,
   KeyNotFoundError,
   PBKDF2PolicyError,
+  PasskeyNotEnrolledError,
+  PasskeyNotSupportedError,
+  PasskeyUnlockFailedError,
   PassphrasePolicyError,
   VaultLockedError,
   WrongPassphraseError
 } from "./errors.js";
 export type { EncryptedKeyBlob } from "./crypto.js";
-export type { BYOKVaultOptions, VaultConfig, WithKeyOptions } from "./vault.js";
+export type { PasskeyAdapter } from "./passkey.js";
+export type {
+  BYOKVaultOptions,
+  SetConfigWithPasskeyOptions,
+  UnlockWithPasskeyOptions,
+  VaultConfig,
+  WithKeyOptions
+} from "./vault.js";

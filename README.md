@@ -28,6 +28,7 @@ If your threat model requires resistance to active injection attacks, use a serv
 - PBKDF2 key derivation (default `200,000` iterations) with per-user random salt.
 - Encrypted JSON vault config support (`apiKey` + metadata such as org/model preferences).
 - Scoped key access via `withKey(async (key) => { ... })`.
+- Optional passkey unlock flow (`setConfigWithPasskey` / `unlockWithPasskey`) for biometric UX.
 - Optional token circuit breaker with:
   - pre-flight soft check (`requestedTokens`)
   - post-call hard accounting (`reportUsage(tokens)`)
@@ -162,6 +163,7 @@ Options:
 - `devMode?: boolean` defaults to `NODE_ENV !== "production"` when available
 - `localStorage?: Storage` / `sessionStorage?: Storage` for testing/custom storage
 - `logger?: { warn(message: string): void }` custom warning sink
+- `passkeyAdapter?: PasskeyAdapter` optional WebAuthn adapter override (for custom environments/tests)
 
 `hardMinTokens` / `hardMaxTokens` require `maxTokens` to be set.
 
@@ -169,7 +171,9 @@ Methods:
 
 - `setKey(apiKey, passphrase): Promise<void>`
 - `setConfig(config, passphrase): Promise<void>`
+- `setConfigWithPasskey(config, options): Promise<void>`
 - `unlock(passphrase): Promise<void>`
+- `unlockWithPasskey(options?): Promise<void>`
 - `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
 - `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
 - `reportUsage(tokens): void`
@@ -180,6 +184,7 @@ Methods:
 - `getHardMinTokens(): number | null`
 - `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
+- `isPasskeyEnrolled(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
 - `lock(): void`

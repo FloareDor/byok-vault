@@ -36,7 +36,7 @@ export class VaultLockedError extends BYOKVaultError {
   constructor() {
     super(
       "VAULT_LOCKED",
-      "Vault is locked. Call unlock(passphrase) or pass a passphrase to withKey."
+      "Vault is locked. Call unlock(passphrase), unlockWithPasskey(), or pass a passphrase to withKey/withConfig."
     );
   }
 }
@@ -71,5 +71,29 @@ export class CircuitBreakerDisabledError extends BYOKVaultError {
       "CIRCUIT_BREAKER_DISABLED",
       "Circuit breaker is disabled because maxTokens was not configured."
     );
+  }
+}
+
+export class PasskeyNotSupportedError extends BYOKVaultError {
+  constructor() {
+    super(
+      "PASSKEY_NOT_SUPPORTED",
+      "Passkeys are not supported in this environment. Use passphrase unlock instead."
+    );
+  }
+}
+
+export class PasskeyNotEnrolledError extends BYOKVaultError {
+  constructor() {
+    super(
+      "PASSKEY_NOT_ENROLLED",
+      "No passkey-enrolled vault is available. Store a vault with setConfigWithPasskey first."
+    );
+  }
+}
+
+export class PasskeyUnlockFailedError extends BYOKVaultError {
+  constructor(message = "Passkey unlock failed. Verify the credential and try again.") {
+    super("PASSKEY_UNLOCK_FAILED", message);
   }
 }

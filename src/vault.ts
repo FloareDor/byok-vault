@@ -1,22 +1,29 @@
 import { CircuitBreaker } from "./circuit-breaker.js";
-import { base64ToBytes } from "./encoding.js";
+import { base64ToBytes, utf8ToBytes } from "./encoding.js";
 import {
   DEFAULT_PBKDF2_ITERATIONS,
   decryptConfigWithKeyBits,
+  deriveKeyBitsFromSecret,
   deriveKeyBits,
   encryptConfig,
   encryptConfigWithKeyBits,
+  encryptConfigWithPasskeyMaterial,
   type EncryptedKeyBlob,
+  type EncryptedPasskeyConfigBlob,
   type VaultConfig as CryptoVaultConfig
 } from "./crypto.js";
 import {
   CircuitBreakerDisabledError,
   KeyNotFoundError,
   PBKDF2PolicyError,
+  PasskeyNotEnrolledError,
+  PasskeyNotSupportedError,
+  PasskeyUnlockFailedError,
   PassphrasePolicyError,
   VaultLockedError,
   WrongPassphraseError
 } from "./errors.js";
+import { createBrowserPasskeyAdapter, type PasskeyAdapter } from "./passkey.js";
 import {
   EncryptedKeyStorage,
   SessionKeyCache,
@@ -26,6 +33,8 @@ import {
 
 const DEFAULT_NAMESPACE = "byok-vault";
 const DEFAULT_MIN_PASSPHRASE_LENGTH = 8;
+const PASSKEY_SALT_BYTES = 32;
+const PASSKEY_CHALLENGE_BYTES = 32;
 
 interface ScopeState {
   reported: boolean;
@@ -34,6 +43,19 @@ interface ScopeState {
 export interface WithKeyOptions {
   requestedTokens?: number;
   passphrase?: string;
+}
+
+export interface SetConfigWithPasskeyOptions {
+  rpName: string;
+  userName: string;
+  userDisplayName?: string;
+  userId?: string | Uint8Array;
+  rpId?: string;
+  timeoutMs?: number;
+}
+
+export interface UnlockWithPasskeyOptions {
+  timeoutMs?: number;
 }
 
 export type VaultConfig = CryptoVaultConfig;
@@ -48,6 +70,7 @@ export interface BYOKVaultOptions {
   devMode?: boolean;
   localStorage?: Storage;
   sessionStorage?: Storage;
+  passkeyAdapter?: PasskeyAdapter;
   logger?: Pick<Console, "warn">;
 }
 
@@ -59,12 +82,27 @@ function inferDevMode(): boolean {
   return processCandidate.env.NODE_ENV !== "production";
 }
 
+function assertWebCrypto(): Crypto {
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("Web Crypto API is not available in this environment.");
+  }
+  return globalThis.crypto;
+}
+
+function getRandomBytes(size: number): Uint8Array {
+  const cryptoProvider = assertWebCrypto();
+  const random = new Uint8Array(size);
+  cryptoProvider.getRandomValues(random);
+  return random;
+}
+
 export class BYOKVault {
   private readonly keyStorage: EncryptedKeyStorage;
   private readonly sessionCache: SessionKeyCache;
   private readonly minPassphraseLength: number;
   private readonly pbkdf2Iterations: number;
   private readonly breaker?: CircuitBreaker;
+  private readonly passkeyAdapter: PasskeyAdapter;
   private readonly devMode: boolean;
   private readonly logger: Pick<Console, "warn">;
   private readonly scopes: ScopeState[] = [];
@@ -97,6 +135,7 @@ export class BYOKVault {
 
     this.devMode = options.devMode ?? inferDevMode();
     this.logger = options.logger ?? console;
+    this.passkeyAdapter = options.passkeyAdapter ?? createBrowserPasskeyAdapter();
 
     if (
       options.maxTokens === undefined &&
@@ -147,12 +186,102 @@ export class BYOKVault {
     this.breaker?.reset();
   }
 
+  async setConfigWithPasskey(
+    config: VaultConfig,
+    options: SetConfigWithPasskeyOptions
+  ): Promise<void> {
+    this.assertPasskeySupported();
+    if (!options.rpName.trim()) {
+      throw new Error("Passkey enrollment requires a non-empty rpName.");
+    }
+    if (!options.userName.trim()) {
+      throw new Error("Passkey enrollment requires a non-empty userName.");
+    }
+
+    const prfSalt = getRandomBytes(PASSKEY_SALT_BYTES);
+    const challenge = getRandomBytes(PASSKEY_CHALLENGE_BYTES);
+    const userId =
+      typeof options.userId === "string"
+        ? utf8ToBytes(options.userId)
+        : options.userId ?? getRandomBytes(16);
+    const userDisplayName = options.userDisplayName?.trim() || options.userName;
+
+    let credential: { credentialId: Uint8Array; prfOutput: Uint8Array };
+    try {
+      credential = await this.passkeyAdapter.create({
+        challenge,
+        userId,
+        userName: options.userName,
+        userDisplayName,
+        rpName: options.rpName,
+        rpId: options.rpId,
+        timeoutMs: options.timeoutMs,
+        prfInput: prfSalt
+      });
+    } catch (error) {
+      if (error instanceof PasskeyUnlockFailedError) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : undefined;
+      throw new PasskeyUnlockFailedError(message);
+    }
+
+    const keyBits = await deriveKeyBitsFromSecret(credential.prfOutput);
+    const blob = await encryptConfigWithPasskeyMaterial(config, keyBits, {
+      credentialId: credential.credentialId,
+      prfSalt,
+      rpId: options.rpId
+    });
+    this.keyStorage.set(blob);
+    this.saveSessionCache(blob, keyBits);
+    this.breaker?.reset();
+  }
+
   async unlock(passphrase: string): Promise<void> {
     this.assertPassphrase(passphrase);
     const blob = this.requireStoredBlob();
+    if (blob.version === 3) {
+      throw new PasskeyUnlockFailedError(
+        "This vault is passkey-protected. Use unlockWithPasskey() instead."
+      );
+    }
     const keyBits = await deriveKeyBits(passphrase, base64ToBytes(blob.salt), blob.iterations);
     const { blob: activeBlob } = await this.decryptConfigAndMaybeMigrate(blob, keyBits);
     this.saveSessionCache(activeBlob, keyBits);
+  }
+
+  async unlockWithPasskey(options: UnlockWithPasskeyOptions = {}): Promise<void> {
+    this.assertPasskeySupported();
+    const blob = this.requirePasskeyBlob();
+    const challenge = getRandomBytes(PASSKEY_CHALLENGE_BYTES);
+
+    let assertion: { prfOutput: Uint8Array };
+    try {
+      assertion = await this.passkeyAdapter.get({
+        challenge,
+        credentialId: base64ToBytes(blob.unlock.credentialId),
+        prfInput: base64ToBytes(blob.unlock.prfSalt),
+        rpId: blob.unlock.rpId,
+        timeoutMs: options.timeoutMs
+      });
+    } catch (error) {
+      if (error instanceof PasskeyUnlockFailedError) {
+        throw error;
+      }
+      const message = error instanceof Error ? error.message : undefined;
+      throw new PasskeyUnlockFailedError(message);
+    }
+
+    const keyBits = await deriveKeyBitsFromSecret(assertion.prfOutput);
+    try {
+      await decryptConfigWithKeyBits(blob, keyBits);
+    } catch (error) {
+      if (error instanceof WrongPassphraseError) {
+        throw new PasskeyUnlockFailedError();
+      }
+      throw error;
+    }
+    this.saveSessionCache(blob, keyBits);
   }
 
   async withKey<T>(
@@ -230,6 +359,11 @@ export class BYOKVault {
     return this.keyStorage.get() !== null;
   }
 
+  isPasskeyEnrolled(): boolean {
+    const blob = this.keyStorage.get();
+    return blob?.version === 3;
+  }
+
   isLocked(): boolean {
     const blob = this.keyStorage.get();
     if (!blob) {
@@ -268,6 +402,20 @@ export class BYOKVault {
     return blob;
   }
 
+  private requirePasskeyBlob(): EncryptedPasskeyConfigBlob {
+    const blob = this.requireStoredBlob();
+    if (blob.version !== 3 || blob.unlock.mode !== "passkey") {
+      throw new PasskeyNotEnrolledError();
+    }
+    return blob;
+  }
+
+  private assertPasskeySupported(): void {
+    if (!this.passkeyAdapter.isSupported()) {
+      throw new PasskeyNotSupportedError();
+    }
+  }
+
   private saveSessionCache(blob: EncryptedKeyBlob, keyBits: Uint8Array): void {
     // sessionStorage caching is only for passphrase UX; it is not an extra security boundary.
     this.sessionCache.save({
@@ -282,7 +430,7 @@ export class BYOKVault {
     keyBits: Uint8Array
   ): Promise<{ config: VaultConfig; blob: EncryptedKeyBlob }> {
     const config = await decryptConfigWithKeyBits(blob, keyBits);
-    if (blob.version === 2) {
+    if (blob.version !== 1) {
       return { config, blob };
     }
 
@@ -309,6 +457,12 @@ export class BYOKVault {
           throw error;
         }
       }
+    }
+
+    if (blob.version === 3) {
+      throw new PasskeyUnlockFailedError(
+        "This vault is passkey-protected. Call unlockWithPasskey() before withKey/withConfig."
+      );
     }
 
     if (!passphrase) {

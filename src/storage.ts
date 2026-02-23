@@ -26,13 +26,28 @@ function isEncryptedKeyBlob(input: unknown): input is EncryptedKeyBlob {
     return false;
   }
   const blob = input as Record<string, unknown>;
-  return (
-    (blob.version === 1 || blob.version === 2) &&
+  const baseShapeValid =
+    (blob.version === 1 || blob.version === 2 || blob.version === 3) &&
     typeof blob.iterations === "number" &&
     typeof blob.salt === "string" &&
     typeof blob.iv === "string" &&
     typeof blob.ciphertext === "string" &&
-    typeof blob.createdAt === "string"
+    typeof blob.createdAt === "string";
+  if (!baseShapeValid) {
+    return false;
+  }
+
+  if (blob.version !== 3) {
+    return true;
+  }
+
+  const unlock = blob.unlock as Record<string, unknown> | undefined;
+  return (
+    !!unlock &&
+    unlock.mode === "passkey" &&
+    typeof unlock.credentialId === "string" &&
+    typeof unlock.prfSalt === "string" &&
+    (unlock.rpId === undefined || typeof unlock.rpId === "string")
   );
 }
 
