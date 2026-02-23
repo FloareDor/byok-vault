@@ -34,7 +34,7 @@
     "aes-gcm",
     "pbkdf2"
   ],
-  "author": "",
+  "author": "Ra <ravicity999@gmail.com>",
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.15.19",
