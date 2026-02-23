@@ -6,13 +6,32 @@ export const DEFAULT_PBKDF2_ITERATIONS = 200_000;
 const DEFAULT_SALT_BYTES = 16;
 const IV_BYTES = 12;
 
-export interface EncryptedKeyBlob {
-  version: 1;
+interface EncryptedBlobBase {
   iterations: number;
   salt: string;
   iv: string;
   ciphertext: string;
   createdAt: string;
+}
+
+export interface EncryptedLegacyKeyBlob extends EncryptedBlobBase {
+  version: 1;
+}
+
+export interface EncryptedConfigBlob extends EncryptedBlobBase {
+  version: 2;
+}
+
+export type EncryptedKeyBlob = EncryptedLegacyKeyBlob | EncryptedConfigBlob;
+
+export interface VaultConfig {
+  apiKey: string;
+  [key: string]: unknown;
+}
+
+interface EncryptWithKeyBitsOptions {
+  iterations: number;
+  salt: Uint8Array;
 }
 
 interface EncryptOptions {
@@ -93,7 +112,7 @@ async function encryptWithKeyBits(
   return { iv, ciphertext: new Uint8Array(ciphertext) };
 }
 
-export async function decryptWithKeyBits(
+async function decryptPayloadWithKeyBits(
   blob: EncryptedKeyBlob,
   keyBits: Uint8Array
 ): Promise<string> {
@@ -115,6 +134,95 @@ export async function decryptWithKeyBits(
     }
     throw error;
   }
+}
+
+function parseVaultConfig(payload: string): VaultConfig {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(payload);
+  } catch {
+    throw new Error("Stored vault config payload is not valid JSON.");
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Stored vault config payload must be a JSON object.");
+  }
+
+  const apiKey = (parsed as { apiKey?: unknown }).apiKey;
+  if (typeof apiKey !== "string" || apiKey.length === 0) {
+    throw new Error("Stored vault config payload is missing a non-empty apiKey string.");
+  }
+
+  return parsed as VaultConfig;
+}
+
+function serializeVaultConfig(config: VaultConfig): string {
+  if (!config || typeof config !== "object" || Array.isArray(config)) {
+    throw new Error("config must be a non-null JSON object.");
+  }
+  if (typeof config.apiKey !== "string" || config.apiKey.length === 0) {
+    throw new Error("config.apiKey must be a non-empty string.");
+  }
+
+  try {
+    return JSON.stringify(config);
+  } catch {
+    throw new Error("config must be JSON-serializable.");
+  }
+}
+
+export async function decryptConfigWithKeyBits(
+  blob: EncryptedKeyBlob,
+  keyBits: Uint8Array
+): Promise<VaultConfig> {
+  const payload = await decryptPayloadWithKeyBits(blob, keyBits);
+  if (blob.version === 1) {
+    return { apiKey: payload };
+  }
+  return parseVaultConfig(payload);
+}
+
+async function encryptConfigPayloadWithKeyBits(
+  config: VaultConfig,
+  keyBits: Uint8Array,
+  options: EncryptWithKeyBitsOptions
+): Promise<EncryptedConfigBlob> {
+  const encrypted = await encryptWithKeyBits(keyBits, serializeVaultConfig(config));
+  return {
+    version: 2,
+    iterations: options.iterations,
+    salt: bytesToBase64(options.salt),
+    iv: bytesToBase64(encrypted.iv),
+    ciphertext: bytesToBase64(encrypted.ciphertext),
+    createdAt: new Date().toISOString()
+  };
+}
+
+export async function decryptWithKeyBits(
+  blob: EncryptedKeyBlob,
+  keyBits: Uint8Array
+): Promise<string> {
+  const config = await decryptConfigWithKeyBits(blob, keyBits);
+  return config.apiKey;
+}
+
+export async function encryptConfigWithKeyBits(
+  config: VaultConfig,
+  keyBits: Uint8Array,
+  options: EncryptWithKeyBitsOptions
+): Promise<EncryptedConfigBlob> {
+  return encryptConfigPayloadWithKeyBits(config, keyBits, options);
+}
+
+export async function encryptConfig(
+  config: VaultConfig,
+  passphrase: string,
+  options: EncryptOptions = {}
+): Promise<EncryptedConfigBlob> {
+  const salt = getRandomBytes(options.saltBytes ?? DEFAULT_SALT_BYTES);
+  const iterations = options.iterations ?? DEFAULT_PBKDF2_ITERATIONS;
+  const keyBits = await deriveKeyBits(passphrase, salt, iterations);
+  return encryptConfigPayloadWithKeyBits(config, keyBits, { iterations, salt });
 }
 
 export async function encryptKey(

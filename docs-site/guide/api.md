@@ -24,8 +24,10 @@ new BYOKVault(options?)
 ## Methods
 
 - `setKey(apiKey, passphrase): Promise<void>`
+- `setConfig(config, passphrase): Promise<void>`
 - `unlock(passphrase): Promise<void>`
 - `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
+- `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
 - `reportUsage(tokens): void`
 - `getUsage(): number`
 - `getRemainingTokens(): number`

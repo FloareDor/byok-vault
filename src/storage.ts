@@ -27,7 +27,7 @@ function isEncryptedKeyBlob(input: unknown): input is EncryptedKeyBlob {
   }
   const blob = input as Record<string, unknown>;
   return (
-    blob.version === 1 &&
+    (blob.version === 1 || blob.version === 2) &&
     typeof blob.iterations === "number" &&
     typeof blob.salt === "string" &&
     typeof blob.iv === "string" &&

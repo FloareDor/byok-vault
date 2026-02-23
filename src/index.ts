@@ -1,8 +1,11 @@
 export {
   DEFAULT_PBKDF2_ITERATIONS,
+  decryptConfigWithKeyBits,
   decryptKey,
   decryptWithKeyBits,
   deriveKeyBits,
+  encryptConfig,
+  encryptConfigWithKeyBits,
   encryptKey
 } from "./crypto.js";
 export { CircuitBreaker } from "./circuit-breaker.js";
@@ -19,4 +22,4 @@ export {
   WrongPassphraseError
 } from "./errors.js";
 export type { EncryptedKeyBlob } from "./crypto.js";
-export type { BYOKVaultOptions, WithKeyOptions } from "./vault.js";
+export type { BYOKVaultOptions, VaultConfig, WithKeyOptions } from "./vault.js";

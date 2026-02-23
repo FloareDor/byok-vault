@@ -26,6 +26,7 @@ If your threat model requires resistance to active injection attacks, use a serv
 
 - AES-GCM encryption at rest in `localStorage`.
 - PBKDF2 key derivation (default `200,000` iterations) with per-user random salt.
+- Encrypted JSON vault config support (`apiKey` + metadata such as org/model preferences).
 - Scoped key access via `withKey(async (key) => { ... })`.
 - Optional token circuit breaker with:
   - pre-flight soft check (`requestedTokens`)
@@ -167,8 +168,10 @@ Options:
 Methods:
 
 - `setKey(apiKey, passphrase): Promise<void>`
+- `setConfig(config, passphrase): Promise<void>`
 - `unlock(passphrase): Promise<void>`
 - `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
+- `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
 - `reportUsage(tokens): void`
 - `getUsage(): number`
 - `getRemainingTokens(): number`
@@ -181,6 +184,8 @@ Methods:
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
 - `lock(): void`
 - `nuke(): void`
+
+`setKey` / `withKey` remain compatibility wrappers for key-only workflows.
 
 ## Threat Model and Limitations
 

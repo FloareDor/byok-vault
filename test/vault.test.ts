@@ -4,6 +4,8 @@ import {
   BYOKVault,
   CircuitBreakerDisabledError,
   CircuitBreakerLimitError,
+  decryptKey,
+  encryptKey,
   KeyNotFoundError,
   PBKDF2PolicyError,
   VaultLockedError,
@@ -230,6 +232,62 @@ describe("BYOKVault", () => {
     await expect(
       vault.withKey(async (key) => key, { passphrase: PASSPHRASE })
     ).resolves.toBe(API_KEY);
+  });
+
+  it("stores encrypted config metadata and preserves withKey compatibility", async () => {
+    const namespace = uniqueNamespace("config-metadata");
+    const vault = new BYOKVault({ namespace, devMode: true });
+
+    await vault.setConfig(
+      {
+        apiKey: API_KEY,
+        provider: "openai",
+        organizationId: "org_test",
+        preferences: { model: "gpt-4.1-mini", temperature: 0.2 }
+      },
+      PASSPHRASE
+    );
+
+    const config = await vault.withConfig(async (decryptedConfig) => decryptedConfig);
+    expect(config.apiKey).toBe(API_KEY);
+    expect(config.organizationId).toBe("org_test");
+    expect(config.preferences).toEqual({ model: "gpt-4.1-mini", temperature: 0.2 });
+
+    const key = await vault.withKey(async (decryptedKey) => decryptedKey);
+    expect(key).toBe(API_KEY);
+
+    const raw = localStorage.getItem(`${namespace}:encrypted-key`);
+    expect(raw).toBeTruthy();
+    expect(raw).not.toContain(API_KEY);
+    const blob = JSON.parse(raw ?? "{}");
+    expect(blob.version).toBe(2);
+  });
+
+  it("lazily migrates legacy v1 blobs to version 2 after successful decrypt", async () => {
+    const namespace = uniqueNamespace("legacy-migration");
+    const legacyBlob = await encryptKey(API_KEY, PASSPHRASE);
+    localStorage.setItem(`${namespace}:encrypted-key`, JSON.stringify(legacyBlob));
+    sessionStorage.clear();
+
+    const vault = new BYOKVault({ namespace, devMode: true });
+    await expect(
+      vault.withConfig(async (decryptedConfig) => decryptedConfig, { passphrase: PASSPHRASE })
+    ).resolves.toMatchObject({ apiKey: API_KEY });
+
+    const migratedBlob = vault.getEncryptedBlob();
+    expect(migratedBlob?.version).toBe(2);
+    expect(migratedBlob?.iterations).toBe(legacyBlob.iterations);
+    expect(migratedBlob?.salt).toBe(legacyBlob.salt);
+  });
+
+  it("keeps decryptKey helper compatible with config blobs", async () => {
+    const namespace = uniqueNamespace("decrypt-key-v2");
+    const vault = new BYOKVault({ namespace, devMode: true });
+    await vault.setConfig({ apiKey: API_KEY, model: "gpt-4.1-mini" }, PASSPHRASE);
+
+    const blob = vault.getEncryptedBlob();
+    expect(blob?.version).toBe(2);
+    await expect(decryptKey(blob!, PASSPHRASE)).resolves.toBe(API_KEY);
   });
 
   it("enforces pbkdf2 iteration floor", () => {

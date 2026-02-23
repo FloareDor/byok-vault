@@ -2,10 +2,12 @@ import { CircuitBreaker } from "./circuit-breaker.js";
 import { base64ToBytes } from "./encoding.js";
 import {
   DEFAULT_PBKDF2_ITERATIONS,
-  decryptWithKeyBits,
+  decryptConfigWithKeyBits,
   deriveKeyBits,
-  encryptKey,
-  type EncryptedKeyBlob
+  encryptConfig,
+  encryptConfigWithKeyBits,
+  type EncryptedKeyBlob,
+  type VaultConfig as CryptoVaultConfig
 } from "./crypto.js";
 import {
   CircuitBreakerDisabledError,
@@ -33,6 +35,8 @@ export interface WithKeyOptions {
   requestedTokens?: number;
   passphrase?: string;
 }
+
+export type VaultConfig = CryptoVaultConfig;
 
 export interface BYOKVaultOptions {
   namespace?: string;
@@ -115,12 +119,15 @@ export class BYOKVault {
   }
 
   async setKey(apiKey: string, passphrase: string): Promise<void> {
-    this.assertPassphrase(passphrase);
     if (!apiKey) {
       throw new Error("apiKey cannot be empty.");
     }
+    await this.setConfig({ apiKey }, passphrase);
+  }
 
-    const blob = await encryptKey(apiKey, passphrase, {
+  async setConfig(config: VaultConfig, passphrase: string): Promise<void> {
+    this.assertPassphrase(passphrase);
+    const blob = await encryptConfig(config, passphrase, {
       iterations: this.pbkdf2Iterations
     });
     this.keyStorage.set(blob);
@@ -143,18 +150,20 @@ export class BYOKVault {
   async unlock(passphrase: string): Promise<void> {
     this.assertPassphrase(passphrase);
     const blob = this.requireStoredBlob();
-    const salt = base64ToBytes(blob.salt);
-    const keyBits = await deriveKeyBits(passphrase, salt, blob.iterations);
-    await this.decryptOrThrowWrongPassphrase(blob, keyBits);
-    this.sessionCache.save({
-      salt: blob.salt,
-      iterations: blob.iterations,
-      keyBits
-    });
+    const keyBits = await deriveKeyBits(passphrase, base64ToBytes(blob.salt), blob.iterations);
+    const { blob: activeBlob } = await this.decryptConfigAndMaybeMigrate(blob, keyBits);
+    this.saveSessionCache(activeBlob, keyBits);
   }
 
   async withKey<T>(
     callback: (decryptedKey: string) => Promise<T> | T,
+    options: WithKeyOptions = {}
+  ): Promise<T> {
+    return this.withConfig((config) => callback(config.apiKey), options);
+  }
+
+  async withConfig<T>(
+    callback: (decryptedConfig: VaultConfig) => Promise<T> | T,
     options: WithKeyOptions = {}
   ): Promise<T> {
     this.breaker?.assertCanProceed(options.requestedTokens);
@@ -165,15 +174,15 @@ export class BYOKVault {
     try {
       // If malicious script runs in-origin (XSS), it can still read this value in-flight.
       // This API narrows exposure windows; it does not eliminate active injection risk.
-      const decryptedKey = await this.resolveDecryptedKey(options.passphrase);
-      const result = await callback(decryptedKey);
+      const decryptedConfig = await this.resolveDecryptedConfig(options.passphrase);
+      const result = await callback(decryptedConfig);
       callbackCompleted = true;
       return result;
     } finally {
       this.scopes.pop();
       if (this.breaker && this.devMode && callbackCompleted && !scope.reported) {
         this.logger.warn(
-          "[byok-vault] withKey completed without reportUsage(tokens). Circuit breaker accounting is incomplete."
+          "[byok-vault] withKey/withConfig completed without reportUsage(tokens). Circuit breaker accounting is incomplete."
         );
       }
     }
@@ -259,12 +268,40 @@ export class BYOKVault {
     return blob;
   }
 
-  private async resolveDecryptedKey(passphrase?: string): Promise<string> {
+  private saveSessionCache(blob: EncryptedKeyBlob, keyBits: Uint8Array): void {
+    // sessionStorage caching is only for passphrase UX; it is not an extra security boundary.
+    this.sessionCache.save({
+      salt: blob.salt,
+      iterations: blob.iterations,
+      keyBits
+    });
+  }
+
+  private async decryptConfigAndMaybeMigrate(
+    blob: EncryptedKeyBlob,
+    keyBits: Uint8Array
+  ): Promise<{ config: VaultConfig; blob: EncryptedKeyBlob }> {
+    const config = await decryptConfigWithKeyBits(blob, keyBits);
+    if (blob.version === 2) {
+      return { config, blob };
+    }
+
+    const migrated = await encryptConfigWithKeyBits(config, keyBits, {
+      iterations: blob.iterations,
+      salt: base64ToBytes(blob.salt)
+    });
+    this.keyStorage.set(migrated);
+    return { config, blob: migrated };
+  }
+
+  private async resolveDecryptedConfig(passphrase?: string): Promise<VaultConfig> {
     const blob = this.requireStoredBlob();
     const cachedBits = this.sessionCache.load(blob.salt, blob.iterations);
     if (cachedBits) {
       try {
-        return await decryptWithKeyBits(blob, cachedBits);
+        const { config, blob: activeBlob } = await this.decryptConfigAndMaybeMigrate(blob, cachedBits);
+        this.saveSessionCache(activeBlob, cachedBits);
+        return config;
       } catch (error) {
         if (error instanceof WrongPassphraseError) {
           this.sessionCache.clear();
@@ -284,26 +321,8 @@ export class BYOKVault {
       base64ToBytes(blob.salt),
       blob.iterations
     );
-    const decryptedKey = await this.decryptOrThrowWrongPassphrase(blob, keyBits);
-    this.sessionCache.save({
-      salt: blob.salt,
-      iterations: blob.iterations,
-      keyBits
-    });
-    return decryptedKey;
-  }
-
-  private async decryptOrThrowWrongPassphrase(
-    blob: EncryptedKeyBlob,
-    keyBits: Uint8Array
-  ): Promise<string> {
-    try {
-      return await decryptWithKeyBits(blob, keyBits);
-    } catch (error) {
-      if (error instanceof WrongPassphraseError) {
-        throw error;
-      }
-      throw error;
-    }
+    const { config, blob: activeBlob } = await this.decryptConfigAndMaybeMigrate(blob, keyBits);
+    this.saveSessionCache(activeBlob, keyBits);
+    return config;
   }
 }
