@@ -3,3 +3,4 @@ agent-context/
 node_modules/
 dist/
 demo/dist/
+docs-site/.vitepress/dist/

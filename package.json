@@ -1,5 +1,5 @@
 {
-  "name": "byok-browser-vault",
+  "name": "byok-vault",
   "version": "0.1.0",
   "description": "Browser-native BYOK vault with encrypted storage and token circuit breaker.",
   "type": "module",
@@ -24,6 +24,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pack:check": "node ./scripts/check-pack.mjs",
+    "docs:dev": "vitepress dev docs-site",
+    "docs:build": "vitepress build docs-site",
+    "docs:preview": "vitepress preview docs-site",
     "demo": "vite --config demo/vite.config.ts",
     "demo:build": "vite build --config demo/vite.config.ts"
   },
@@ -35,12 +38,21 @@
     "pbkdf2"
   ],
   "author": "Ra <ravicity999@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/FloareDor/byok-vault.git"
+  },
+  "homepage": "https://floaredor.github.io/byok-vault/",
+  "bugs": {
+    "url": "https://github.com/FloareDor/byok-vault/issues"
+  },
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.15.19",
     "jsdom": "^25.0.1",
     "typescript": "^5.8.3",
     "vite": "^5.4.19",
+    "vitepress": "^1.6.4",
     "vitest": "^2.1.9"
   }
 }

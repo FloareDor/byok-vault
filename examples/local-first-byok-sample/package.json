@@ -10,7 +10,7 @@
     "smoke": "node ./scripts/smoke.mjs"
   },
   "dependencies": {
-    "byok-browser-vault": "file:../.."
+    "byok-vault": "file:../.."
   },
   "devDependencies": {
     "vite": "^5.4.21"

@@ -1,6 +1,6 @@
 # Local-First BYOK Sample (Gemini)
 
-This sample is a separate app that depends on `byok-browser-vault` via `file:../..` and calls the Gemini API.
+This sample is a separate app that depends on `byok-vault` via `file:../..` and calls the Gemini API.
 
 ## Run the app
 

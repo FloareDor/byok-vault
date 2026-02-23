@@ -2,7 +2,7 @@ import { BYOKVault, BYOKVaultError } from "../src/index.js";
 
 import "./style.css";
 
-const NAMESPACE = "byok-browser-vault-demo";
+const NAMESPACE = "byok-vault-demo";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) {

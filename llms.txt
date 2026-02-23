@@ -1,4 +1,4 @@
-# byok-browser-vault
+# byok-vault
 
 Browser-native BYOK vault for local-first/serverless AI apps.
 

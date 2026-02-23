@@ -1,6 +1,6 @@
-# Human Docs: byok-browser-vault
+# Human Docs: byok-vault
 
-This guide is for developers integrating `byok-browser-vault` into real apps.
+This guide is for developers integrating `byok-vault` into real apps.
 
 ## What This Library Solves
 
@@ -21,7 +21,7 @@ It is not a backend replacement for high-security threat models with active XSS 
 ## Minimal Usage Pattern
 
 ```ts
-import { BYOKVault } from "byok-browser-vault";
+import { BYOKVault } from "byok-vault";
 
 const vault = new BYOKVault({
   maxTokens: 30_000

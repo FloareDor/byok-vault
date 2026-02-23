@@ -1,4 +1,4 @@
-import { BYOKVault, BYOKVaultError } from "byok-browser-vault";
+import { BYOKVault, BYOKVaultError } from "byok-vault";
 
 const namespace = "local-first-byok-sample";
 

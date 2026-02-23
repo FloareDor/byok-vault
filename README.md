@@ -1,6 +1,7 @@
-# byok-browser-vault
+# byok-vault
 
 Browser-native BYOK vault for serverless/local-first AI apps.
+Docs site: https://floaredor.github.io/byok-vault/
 
 ## Security Reality Check (Read First)
 
@@ -29,7 +30,7 @@ Most BYOK apps choose between two bad defaults:
 - plaintext key entry in the browser (trust-killing UX), or
 - rolling custom client-side crypto where implementation mistakes are common.
 
-`byok-browser-vault` is useful when you want browser-native key handling with opinionated defaults:
+`byok-vault` is useful when you want browser-native key handling with opinionated defaults:
 
 - encrypted-at-rest storage with per-key random salt and AES-GCM,
 - scoped key access (`withKey`) instead of wide key plumbing through app code,
@@ -41,13 +42,13 @@ Do not use this as an active-XSS defense; use a server-side proxy for that.
 ## Install
 
 ```bash
-npm install byok-browser-vault
+npm install byok-vault
 ```
 
 ## Quick Start
 
 ```ts
-import { BYOKVault } from "byok-browser-vault";
+import { BYOKVault } from "byok-vault";
 
 const vault = new BYOKVault({
   maxTokens: 30_000,
@@ -109,7 +110,7 @@ new BYOKVault(options?)
 
 Options:
 
-- `namespace?: string` storage key prefix (default `byok-browser-vault`)
+- `namespace?: string` storage key prefix (default `byok-vault`)
 - `minPassphraseLength?: number` default `8`
 - `pbkdf2Iterations?: number` default `200000`
 - `maxTokens?: number` enables circuit breaker

@@ -22,7 +22,7 @@ import {
   resolveStorage
 } from "./storage.js";
 
-const DEFAULT_NAMESPACE = "byok-browser-vault";
+const DEFAULT_NAMESPACE = "byok-vault";
 const DEFAULT_MIN_PASSPHRASE_LENGTH = 8;
 
 interface ScopeState {
@@ -160,7 +160,7 @@ export class BYOKVault {
       this.scopes.pop();
       if (this.breaker && this.devMode && callbackCompleted && !scope.reported) {
         this.logger.warn(
-          "[byok-browser-vault] withKey completed without reportUsage(tokens). Circuit breaker accounting is incomplete."
+          "[byok-vault] withKey completed without reportUsage(tokens). Circuit breaker accounting is incomplete."
         );
       }
     }

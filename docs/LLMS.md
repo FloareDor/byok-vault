@@ -1,10 +1,10 @@
-# LLM Docs: byok-browser-vault
+# LLM Docs: byok-vault
 
 This file is a machine-oriented reference for code assistants and agents.
 
 ## Package Identity
 
-- Name: `byok-browser-vault`
+- Name: `byok-vault`
 - Runtime deps: none
 - Environment: browser Web Crypto API (`crypto.subtle`), `localStorage`, `sessionStorage`
 - Primary class: `BYOKVault`
