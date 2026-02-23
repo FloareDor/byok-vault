@@ -17,6 +17,15 @@ export class PassphrasePolicyError extends BYOKVaultError {
   }
 }
 
+export class PBKDF2PolicyError extends BYOKVaultError {
+  constructor(minIterations: number) {
+    super(
+      "PBKDF2_POLICY",
+      `pbkdf2Iterations must be a finite integer greater than or equal to ${minIterations}.`
+    );
+  }
+}
+
 export class KeyNotFoundError extends BYOKVaultError {
   constructor() {
     super("KEY_NOT_FOUND", "No encrypted API key is stored in the vault.");

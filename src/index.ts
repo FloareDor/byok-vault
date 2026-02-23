@@ -13,6 +13,7 @@ export {
   CircuitBreakerLimitError,
   InvalidUsageReportError,
   KeyNotFoundError,
+  PBKDF2PolicyError,
   PassphrasePolicyError,
   VaultLockedError,
   WrongPassphraseError

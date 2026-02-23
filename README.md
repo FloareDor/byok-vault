@@ -66,7 +66,7 @@ await vault.withKey(
 - `requestedTokens` check is a soft guardrail based on your estimate.
 - `reportUsage(tokens)` is the hard truth.
 - When limit is exceeded, the **next** request is blocked with a hard error.
-- In dev mode, vault warns if `withKey` completes without `reportUsage`.
+- In dev mode, vault warns if `withKey` returns successfully without `reportUsage`.
 
 ## Provider Usage Parsing Snippets
 
@@ -113,12 +113,14 @@ Methods:
 - `hasStoredKey(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
+- `lock(): void`
 - `nuke(): void`
 
 ## Threat Model and Limitations
 
 - JavaScript cannot force immediate memory zeroization of strings; decrypted keys can remain in heap memory until GC.
 - Passphrase quality matters. A short PIN (for example 4 digits) is brute-forceable even with high PBKDF2 iteration counts.
+- PBKDF2 iteration count has a hard floor at `200000`; lower values throw at construction time.
 - This package intentionally has zero runtime dependencies, but still has normal dev dependencies for build/test tooling.
 
 ## Development

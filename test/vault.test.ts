@@ -4,6 +4,7 @@ import {
   BYOKVault,
   CircuitBreakerLimitError,
   KeyNotFoundError,
+  PBKDF2PolicyError,
   VaultLockedError,
   WrongPassphraseError
 } from "../src/index.js";
@@ -101,6 +102,26 @@ describe("BYOKVault", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
+  it("does not warn when withKey throws before completion", async () => {
+    const namespace = uniqueNamespace("throw-without-report");
+    const warn = vi.fn();
+    const vault = new BYOKVault({
+      namespace,
+      maxTokens: 100,
+      devMode: true,
+      logger: { warn }
+    });
+    await vault.setKey(API_KEY, PASSPHRASE);
+
+    await expect(
+      vault.withKey(async () => {
+        throw new Error("provider failure");
+      })
+    ).rejects.toThrow("provider failure");
+
+    expect(warn).not.toHaveBeenCalled();
+  });
+
   it("supports nuke reset flow", async () => {
     const namespace = uniqueNamespace("nuke");
     const vault = new BYOKVault({
@@ -131,5 +152,31 @@ describe("BYOKVault", () => {
     const freshVault = new BYOKVault({ namespace, devMode: true });
 
     await expect(freshVault.withKey(async () => "nope")).rejects.toBeInstanceOf(VaultLockedError);
+  });
+
+  it("supports manual lock without deleting stored ciphertext", async () => {
+    const namespace = uniqueNamespace("manual-lock");
+    const vault = new BYOKVault({ namespace, devMode: true });
+    await vault.setKey(API_KEY, PASSPHRASE);
+
+    expect(vault.isLocked()).toBe(false);
+    vault.lock();
+    expect(vault.isLocked()).toBe(true);
+    expect(vault.hasStoredKey()).toBe(true);
+
+    await expect(vault.withKey(async () => "nope")).rejects.toBeInstanceOf(VaultLockedError);
+    await expect(
+      vault.withKey(async (key) => key, { passphrase: PASSPHRASE })
+    ).resolves.toBe(API_KEY);
+  });
+
+  it("enforces pbkdf2 iteration floor", () => {
+    expect(
+      () =>
+        new BYOKVault({
+          namespace: uniqueNamespace("pbkdf2-floor"),
+          pbkdf2Iterations: 199_999
+        })
+    ).toThrow(PBKDF2PolicyError);
   });
 });

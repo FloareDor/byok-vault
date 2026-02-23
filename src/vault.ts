@@ -10,6 +10,7 @@ import {
 import {
   CircuitBreakerDisabledError,
   KeyNotFoundError,
+  PBKDF2PolicyError,
   PassphrasePolicyError,
   VaultLockedError,
   WrongPassphraseError
@@ -71,7 +72,23 @@ export class BYOKVault {
     this.keyStorage = new EncryptedKeyStorage(localStorage, keys.encryptedKey);
     this.sessionCache = new SessionKeyCache(sessionStorage, keys.sessionKey);
     this.minPassphraseLength = options.minPassphraseLength ?? DEFAULT_MIN_PASSPHRASE_LENGTH;
+    if (
+      !Number.isFinite(this.minPassphraseLength) ||
+      !Number.isInteger(this.minPassphraseLength) ||
+      this.minPassphraseLength < 1
+    ) {
+      throw new Error("minPassphraseLength must be an integer greater than or equal to 1.");
+    }
+
     this.pbkdf2Iterations = options.pbkdf2Iterations ?? DEFAULT_PBKDF2_ITERATIONS;
+    if (
+      !Number.isFinite(this.pbkdf2Iterations) ||
+      !Number.isInteger(this.pbkdf2Iterations) ||
+      this.pbkdf2Iterations < DEFAULT_PBKDF2_ITERATIONS
+    ) {
+      throw new PBKDF2PolicyError(DEFAULT_PBKDF2_ITERATIONS);
+    }
+
     this.devMode = options.devMode ?? inferDevMode();
     this.logger = options.logger ?? console;
 
@@ -129,16 +146,19 @@ export class BYOKVault {
   ): Promise<T> {
     this.breaker?.assertCanProceed(options.requestedTokens);
     const scope: ScopeState = { reported: false };
+    let callbackCompleted = false;
     this.scopes.push(scope);
 
     try {
       // If malicious script runs in-origin (XSS), it can still read this value in-flight.
       // This API narrows exposure windows; it does not eliminate active injection risk.
       const decryptedKey = await this.resolveDecryptedKey(options.passphrase);
-      return await callback(decryptedKey);
+      const result = await callback(decryptedKey);
+      callbackCompleted = true;
+      return result;
     } finally {
       this.scopes.pop();
-      if (this.breaker && this.devMode && !scope.reported) {
+      if (this.breaker && this.devMode && callbackCompleted && !scope.reported) {
         this.logger.warn(
           "[byok-browser-vault] withKey completed without reportUsage(tokens). Circuit breaker accounting is incomplete."
         );
@@ -183,6 +203,11 @@ export class BYOKVault {
 
   getEncryptedBlob(): EncryptedKeyBlob | null {
     return this.keyStorage.get();
+  }
+
+  lock(): void {
+    this.sessionCache.clear();
+    this.scopes.length = 0;
   }
 
   nuke(): void {
