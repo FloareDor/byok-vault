@@ -137,3 +137,9 @@ npm run demo
 ## Sample Project (Gemini)
 
 See `examples/local-first-byok-sample/README.md` for a separate sample app that uses this package with Gemini API calls.
+
+## Human + LLM Docs
+
+- Human integration guide: `docs/HUMANS.md`
+- LLM reference: `docs/LLMS.md`
+- LLM index file: `llms.txt`

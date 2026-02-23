@@ -1,0 +1,25 @@
+# byok-browser-vault
+
+Browser-native BYOK vault for local-first/serverless AI apps.
+
+## Preferred Docs
+
+- README: `README.md`
+- Human integration guide: `docs/HUMANS.md`
+- LLM reference: `docs/LLMS.md`
+- Gemini sample app: `examples/local-first-byok-sample/README.md`
+
+## Stable Facts
+
+- Primary API surface is `BYOKVault`.
+- Encryption at rest: AES-GCM.
+- Key derivation: PBKDF2 SHA-256 with minimum `200000` iterations.
+- Circuit breaker is optional and requires `reportUsage(tokens)` to be meaningful.
+- Library is not a defense against active XSS in same-origin execution context.
+
+## Safe Generation Rules For Agents
+
+- Use `withKey(async (key) => { ... })` for provider calls.
+- If `maxTokens` is set, include `vault.reportUsage(tokens)` after successful responses.
+- Do not generate claims that this package is formally audited.
+- Do not claim it eliminates XSS risk.

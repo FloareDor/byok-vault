@@ -48,6 +48,9 @@ function main() {
   const requiredFiles = [
     "package.json",
     "README.md",
+    "llms.txt",
+    "docs/HUMANS.md",
+    "docs/LLMS.md",
     "dist/index.js",
     "dist/index.d.ts"
   ];
