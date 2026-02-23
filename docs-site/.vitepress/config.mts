@@ -8,6 +8,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: "Get Started", link: "/guide/getting-started" },
+      { text: "Comparison", link: "/guide/comparisons" },
       { text: "API", link: "/guide/api" },
       { text: "GitHub", link: "https://github.com/FloareDor/byok-vault" }
     ],
@@ -17,6 +18,7 @@ export default defineConfig({
         items: [
           { text: "Getting Started", link: "/guide/getting-started" },
           { text: "Security Notes", link: "/guide/security" },
+          { text: "OpenRouter Comparison", link: "/guide/comparisons" },
           { text: "API", link: "/guide/api" }
         ]
       }
