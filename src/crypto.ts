@@ -34,10 +34,8 @@ function getRandomBytes(size: number): Uint8Array {
   return random;
 }
 
-function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
-  const arrayBuffer = new ArrayBuffer(bytes.byteLength);
-  new Uint8Array(arrayBuffer).set(bytes);
-  return arrayBuffer;
+function asBufferSource(bytes: Uint8Array): BufferSource {
+  return bytes as unknown as BufferSource;
 }
 
 export async function deriveKeyBits(
@@ -48,7 +46,7 @@ export async function deriveKeyBits(
   const cryptoProvider = assertWebCrypto();
   const passphraseKey = await cryptoProvider.subtle.importKey(
     "raw",
-    toArrayBuffer(utf8ToBytes(passphrase)),
+    asBufferSource(utf8ToBytes(passphrase)),
     "PBKDF2",
     false,
     ["deriveBits"]
@@ -57,7 +55,7 @@ export async function deriveKeyBits(
     {
       name: "PBKDF2",
       hash: "SHA-256",
-      salt: toArrayBuffer(salt),
+      salt: asBufferSource(salt),
       iterations
     },
     passphraseKey,
@@ -70,7 +68,7 @@ async function importAesGcmKey(keyBits: Uint8Array): Promise<CryptoKey> {
   const cryptoProvider = assertWebCrypto();
   return cryptoProvider.subtle.importKey(
     "raw",
-    toArrayBuffer(keyBits),
+    asBufferSource(keyBits),
     { name: "AES-GCM" },
     false,
     ["encrypt", "decrypt"]
@@ -87,10 +85,10 @@ async function encryptWithKeyBits(
   const ciphertext = await cryptoProvider.subtle.encrypt(
     {
       name: "AES-GCM",
-      iv: toArrayBuffer(iv)
+      iv: asBufferSource(iv)
     },
     key,
-    toArrayBuffer(utf8ToBytes(plaintext))
+    asBufferSource(utf8ToBytes(plaintext))
   );
   return { iv, ciphertext: new Uint8Array(ciphertext) };
 }
@@ -105,10 +103,10 @@ export async function decryptWithKeyBits(
     const plaintext = await cryptoProvider.subtle.decrypt(
       {
         name: "AES-GCM",
-        iv: toArrayBuffer(base64ToBytes(blob.iv))
+        iv: asBufferSource(base64ToBytes(blob.iv))
       },
       key,
-      toArrayBuffer(base64ToBytes(blob.ciphertext))
+      asBufferSource(base64ToBytes(blob.ciphertext))
     );
     return bytesToUtf8(new Uint8Array(plaintext));
   } catch (error) {
