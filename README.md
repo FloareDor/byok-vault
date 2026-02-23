@@ -64,13 +64,28 @@ npm install byok-vault
 ```ts
 import { BYOKVault } from "byok-vault";
 
-const vault = new BYOKVault({
-  maxTokens: 30_000,
-  minPassphraseLength: 8
-});
+const vault = new BYOKVault();
 
 await vault.setKey(userApiKey, userPassphrase);
-await vault.unlock(userPassphrase);
+
+await vault.withKey(async (key) => {
+  await fetch("https://api.example.com/llm", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ prompt: "hello" })
+  });
+});
+```
+
+### Optional: Token Budget (Circuit Breaker)
+
+```ts
+const vault = new BYOKVault({
+  maxTokens: 30_000
+});
 
 await vault.withKey(
   async (key) => {
@@ -83,7 +98,7 @@ await vault.withKey(
       body: JSON.stringify({ prompt: "hello" })
     }).then((r) => r.json());
 
-    const used = response.usage.total_tokens;
+    const used = response.usage?.total_tokens ?? 0;
     vault.reportUsage(used); // hard usage accounting
   },
   {
