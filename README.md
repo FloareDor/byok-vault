@@ -130,5 +130,6 @@ npm install
 npm run typecheck
 npm test
 npm run build
+npm run pack:check
 npm run demo
 ```
