@@ -1,5 +1,9 @@
 # byok-vault
 
+[![npm version](https://img.shields.io/npm/v/byok-vault.svg)](https://www.npmjs.com/package/byok-vault)
+[![license](https://img.shields.io/npm/l/byok-vault.svg)](./LICENSE)
+[![bundle size](https://img.shields.io/bundlephobia/minzip/byok-vault)](https://bundlephobia.com/package/byok-vault)
+
 Browser-native BYOK vault for serverless/local-first AI apps.
 Docs site: https://floaredor.github.io/byok-vault/
 
