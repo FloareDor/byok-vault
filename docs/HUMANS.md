@@ -4,57 +4,79 @@ This guide is for developers integrating `byok-vault` into real apps.
 
 ## What This Library Solves
 
-- Encrypts user API keys in-browser before writing to `localStorage`.
-- Lets you scope decrypted key access to one callback with `withKey(...)`.
-- Adds optional per-session token budget tracking via a circuit breaker.
+- Encrypts API credentials in-browser before writing to `localStorage`.
+- Supports encrypted JSON config (`apiKey` plus metadata like org/model/base URL).
+- Supports two unlock modes:
+  - passphrase (`setConfig` + `unlock`)
+  - passkey/WebAuthn (`setConfigWithPasskey` + `unlockWithPasskey`)
+- Scopes decrypted access to one callback (`withConfig` / `withKey`).
+- Adds optional per-session token budget tracking.
 
 It is not a backend replacement for high-security threat models with active XSS risk.
 
 ## Quick Integration Checklist
 
-1. Ask user for API key and passphrase.
-2. Save once with `await vault.setKey(apiKey, passphrase)`.
-3. For each request, call `vault.withKey(...)`.
-4. If breaker enabled, call `vault.reportUsage(tokens)` after each successful provider response.
-5. Add reset UI that calls `vault.nuke()`.
+1. Collect provider config (`apiKey`, optional metadata).
+2. Choose unlock mode:
+   - passphrase: `setConfig(config, passphrase)`
+   - passkey: `setConfigWithPasskey(config, options)`
+3. Run provider calls inside `withConfig(...)` or `withKey(...)`.
+4. If breaker enabled, call `reportUsage(tokens)` after each successful response.
+5. Add reset UI with `nuke()` and optional session lock with `lock()`.
 
-## Minimal Usage Pattern
+## Minimal Pattern (Passphrase)
 
 ```ts
 import { BYOKVault } from "byok-vault";
 
-const vault = new BYOKVault({
-  maxTokens: 30_000,
-  hardMinTokens: 5_000,
-  hardMaxTokens: 100_000
-});
+const vault = new BYOKVault();
 
-// Optional: apply a user-selected value in settings UI.
-vault.setMaxTokens(50_000);
-
-await vault.setKey(userApiKey, userPassphrase);
-
-await vault.withKey(
-  async (key) => {
-    const response = await fetch("/your-provider-call", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}` }
-    }).then((r) => r.json());
-
-    const used = response.usage?.total_tokens ?? 0;
-    vault.reportUsage(used);
+await vault.setConfig(
+  {
+    apiKey: userApiKey,
+    provider: "openai",
+    organizationId: userOrgId
   },
-  { requestedTokens: 1200 }
+  userPassphrase
 );
+
+await vault.withConfig(async (config) => {
+  await fetch("/your-provider-call", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${config.apiKey}` }
+  });
+});
+```
+
+## Minimal Pattern (Passkey)
+
+```ts
+import { BYOKVault } from "byok-vault";
+
+const vault = new BYOKVault();
+
+await vault.setConfigWithPasskey(
+  {
+    apiKey: userApiKey,
+    provider: "openai"
+  },
+  {
+    rpName: "Your App Name",
+    userName: currentUserEmail
+  }
+);
+
+vault.lock();
+await vault.unlockWithPasskey();
 ```
 
 ## UX Recommendations
 
-- Explain passphrase purpose clearly: protects key at rest in browser storage.
-- Enforce strong passphrase UX (default floor is 8 chars, consider stronger copy and meter).
-- Show current token usage and remaining budget if breaker is enabled.
-- If you expose budget controls, keep user input wired through `setMaxTokens(...)`.
-- Provide a visible "reset vault" control wired to `nuke()`.
+- Show one clear choice: unlock with passphrase or unlock with passkey.
+- If passkey is unavailable, keep passphrase fallback visible.
+- Explain limits clearly: this protects data at rest, not active in-origin XSS.
+- If breaker is enabled, display usage and remaining tokens.
+- Provide visible controls for `lock()` and `nuke()`.
 
 ## Security Boundaries (Plain English)
 
@@ -63,25 +85,20 @@ await vault.withKey(
 - Decrypted strings can remain in JS memory until garbage collection.
 - This package is not formally audited.
 
-## Common Mistakes
-
-- Enabling `maxTokens` but forgetting `reportUsage(tokens)`.
-- Exposing user budget controls without setting `hardMaxTokens` in apps that need an upper cap.
-- Treating `requestedTokens` pre-flight as exact accounting.
-- Assuming this protects against active XSS.
-- Lowering PBKDF2 iterations below `200000` (constructor throws).
-
 ## Error Handling You Should Surface
 
-- `PASSPHRASE_POLICY`: passphrase too short.
-- `WRONG_PASSPHRASE`: user entered incorrect passphrase.
-- `VAULT_LOCKED`: no cached session key and no passphrase provided.
-- `CIRCUIT_BREAKER_LIMIT`: budget exhausted/pre-flight blocked.
-- `KEY_NOT_FOUND`: no stored key yet.
+- `PASSPHRASE_POLICY`
+- `WRONG_PASSPHRASE`
+- `VAULT_LOCKED`
+- `PASSKEY_NOT_SUPPORTED`
+- `PASSKEY_NOT_ENROLLED`
+- `PASSKEY_UNLOCK_FAILED`
+- `CIRCUIT_BREAKER_LIMIT`
+- `KEY_NOT_FOUND`
 
 ## Production Readiness Checklist
 
-- Add CSP and strict input sanitization in your app to reduce XSS risk.
+- Add CSP and strict input sanitization in your app.
 - Instrument `reportUsage` code path and alert on missing usage reporting.
-- Use `pack:check` and CI before publishing changes.
-- Document threat model to users in product copy.
+- Use CI checks (`typecheck`, `test`, `pack:check`) before release.
+- Document your app threat model in product copy.

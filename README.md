@@ -67,25 +67,54 @@ Use `byok-vault` instead of OpenRouter BYOK if you are building a **local-first*
 npm install byok-vault
 ```
 
-## Quick Start
+## Quick Start (Passphrase)
 
 ```ts
 import { BYOKVault } from "byok-vault";
 
 const vault = new BYOKVault();
 
-await vault.setKey(userApiKey, userPassphrase);
+await vault.setConfig(
+  {
+    apiKey: userApiKey,
+    provider: "openai",
+    organizationId: userOrgId
+  },
+  userPassphrase
+);
 
-await vault.withKey(async (key) => {
+await vault.withConfig(async (config) => {
   await fetch("https://api.example.com/llm", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ prompt: "hello" })
   });
 });
+```
+
+## Quick Start (Passkey)
+
+```ts
+import { BYOKVault } from "byok-vault";
+
+const vault = new BYOKVault();
+
+await vault.setConfigWithPasskey(
+  {
+    apiKey: userApiKey,
+    provider: "openai"
+  },
+  {
+    rpName: "Your App Name",
+    userName: currentUser.email
+  }
+);
+
+vault.lock();
+await vault.unlockWithPasskey();
 ```
 
 ### Optional: Token Budget (Circuit Breaker)

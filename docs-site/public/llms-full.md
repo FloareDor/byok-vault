@@ -16,20 +16,27 @@ Source: https://floaredor.github.io/byok-vault/guide/getting-started
 npm install byok-vault
 ```
 
-## Basic Usage
+## Basic Usage (Passphrase)
 
 ```ts
 import { BYOKVault } from "byok-vault";
 
 const vault = new BYOKVault();
 
-await vault.setKey(userApiKey, userPassphrase);
+await vault.setConfig(
+  {
+    apiKey: userApiKey,
+    provider: "openai",
+    organizationId: userOrgId
+  },
+  userPassphrase
+);
 
-await vault.withKey(async (key) => {
+await vault.withConfig(async (config) => {
   await fetch("https://api.example.com/llm", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ prompt: "hello" })
@@ -37,11 +44,33 @@ await vault.withKey(async (key) => {
 });
 ```
 
+## Optional: Passkey Unlock (WebAuthn)
+
+```ts
+const vault = new BYOKVault();
+
+await vault.setConfigWithPasskey(
+  {
+    apiKey: userApiKey,
+    provider: "openai"
+  },
+  {
+    rpName: "Your App Name",
+    userName: currentUser.email
+  }
+);
+
+vault.lock();
+await vault.unlockWithPasskey();
+```
+
 ## Typical Flow
 
-1. Ask user for API key and passphrase.
-2. Save once with `setKey`.
-3. Use `withKey` for each provider call.
+1. Ask user for API config (`apiKey` plus optional metadata).
+2. Choose unlock mode:
+   - passphrase: `setConfig(...)`
+   - passkey: `setConfigWithPasskey(...)`
+3. Use `withConfig` (or `withKey`) for each provider call.
 4. Let user reset with `nuke()`.
 
 ::: details Optional: Add Token Budget (Circuit Breaker)
@@ -89,18 +118,21 @@ Source: https://floaredor.github.io/byok-vault/guide/security
 ## What This Package Helps With
 
 - Avoids storing API keys as plaintext in browser storage.
-- Uses PBKDF2 + AES-GCM for encryption at rest.
-- Keeps decrypted key access inside a callback.
+- Uses PBKDF2 + AES-GCM for passphrase mode encryption at rest.
+- Supports passkey-based unlock for biometric UX on supported platforms.
+- Keeps decrypted key/config access inside a callback.
 
 ## What This Package Does Not Solve
 
 - It does not stop active XSS attacks.
 - If malicious JavaScript runs in your origin, it can still read keys in-flight.
 - JavaScript cannot force immediate memory wipe of strings.
+- Passkey support depends on browser/authenticator capabilities (WebAuthn + PRF path).
 
 ## Practical Advice
 
 - Use a strong passphrase UX.
+- If you offer passkeys, keep passphrase fallback for unsupported devices.
 - Add a clear reset path (`nuke()`).
 - Use CSP and strict input sanitization in your app.
 - For high-security threat models, use a server-side proxy.
@@ -143,14 +175,19 @@ new BYOKVault(options?)
 - `localStorage?: Storage`
 - `sessionStorage?: Storage`
 - `logger?: { warn(message: string): void }`
+- `passkeyAdapter?: PasskeyAdapter`
 
 `hardMinTokens` / `hardMaxTokens` require `maxTokens`.
 
 ## Methods
 
 - `setKey(apiKey, passphrase): Promise<void>`
+- `setConfig(config, passphrase): Promise<void>`
+- `setConfigWithPasskey(config, options): Promise<void>`
 - `unlock(passphrase): Promise<void>`
+- `unlockWithPasskey(options?): Promise<void>`
 - `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
+- `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
 - `reportUsage(tokens): void`
 - `getUsage(): number`
 - `getRemainingTokens(): number`
@@ -159,10 +196,13 @@ new BYOKVault(options?)
 - `getHardMinTokens(): number | null`
 - `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
+- `isPasskeyEnrolled(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
 - `lock(): void`
 - `nuke(): void`
+
+Passkey methods (`setConfigWithPasskey`, `unlockWithPasskey`) require a passkey-capable environment.
 
 ## Error Codes
 
@@ -174,3 +214,6 @@ new BYOKVault(options?)
 - `INVALID_USAGE_REPORT`
 - `CIRCUIT_BREAKER_LIMIT`
 - `CIRCUIT_BREAKER_DISABLED`
+- `PASSKEY_NOT_SUPPORTED`
+- `PASSKEY_NOT_ENROLLED`
+- `PASSKEY_UNLOCK_FAILED`

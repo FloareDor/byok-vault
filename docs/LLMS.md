@@ -1,6 +1,6 @@
 # LLM Docs: byok-vault
 
-This file is a machine-oriented reference for code assistants and agents.
+Machine-oriented reference for code assistants and agents.
 
 ## Package Identity
 
@@ -11,12 +11,13 @@ This file is a machine-oriented reference for code assistants and agents.
 
 ## Core Guarantees
 
-- Stored API keys are encrypted at rest using AES-GCM.
-- Per-key salt is random and unique per encryption operation.
-- AES key material is derived via PBKDF2 (SHA-256), default and enforced floor: `200000` iterations.
-- Decrypted key is only provided inside `withKey(callback)`.
+- API credential material is encrypted at rest using AES-GCM.
+- Config payload can be key-only (`setKey`) or JSON config (`setConfig`).
+- Passphrase mode uses PBKDF2 (SHA-256), default and enforced floor: `200000`.
+- Passkey mode can unlock using WebAuthn PRF-backed secret derivation.
+- Decrypted material is exposed only in scoped callbacks (`withConfig` / `withKey`).
 
-## Non-Goals / Limits
+## Limits / Non-Goals
 
 - No defense against active XSS in same origin.
 - No hard provider SDK integrations.
@@ -32,23 +33,29 @@ new BYOKVault(options?)
 
 Important options:
 
-- `namespace?: string` -> storage key prefix
-- `minPassphraseLength?: number` -> integer >= 1 (default 8)
-- `pbkdf2Iterations?: number` -> integer >= 200000
-- `maxTokens?: number` -> enables circuit breaker if set
-- `hardMinTokens?: number` -> integer >= 1, default `1` when breaker is enabled
-- `hardMaxTokens?: number` -> optional ceiling for runtime updates
+- `namespace?: string`
+- `minPassphraseLength?: number` (integer >= 1, default `8`)
+- `pbkdf2Iterations?: number` (integer >= `200000`)
+- `maxTokens?: number` (enables breaker)
+- `hardMinTokens?: number` (default `1` when breaker enabled)
+- `hardMaxTokens?: number`
 - `devMode?: boolean`
-- `localStorage?: Storage`, `sessionStorage?: Storage`
+- `localStorage?: Storage`
+- `sessionStorage?: Storage`
+- `passkeyAdapter?: PasskeyAdapter`
 - `logger?: { warn(message: string): void }`
 
-`hardMinTokens` / `hardMaxTokens` are only valid when `maxTokens` is configured.
+`hardMinTokens` / `hardMaxTokens` require `maxTokens`.
 
 ### Methods
 
 - `setKey(apiKey, passphrase): Promise<void>`
+- `setConfig(config, passphrase): Promise<void>`
+- `setConfigWithPasskey(config, options): Promise<void>`
 - `unlock(passphrase): Promise<void>`
+- `unlockWithPasskey(options?): Promise<void>`
 - `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
+- `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
 - `reportUsage(tokens): void`
 - `getUsage(): number`
 - `getRemainingTokens(): number`
@@ -57,6 +64,7 @@ Important options:
 - `getHardMinTokens(): number | null`
 - `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
+- `isPasskeyEnrolled(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
 - `lock(): void`
@@ -66,11 +74,10 @@ Important options:
 
 - `requestedTokens` is pre-flight estimate only.
 - `reportUsage(tokens)` is post-call hard accounting.
-- Breaker blocks the next request when usage already at/over budget.
-- Runtime max token updates are supported via `setMaxTokens(...)`.
-- Runtime max token updates are validated against optional `hardMinTokens` / `hardMaxTokens`.
-- In dev mode, warning is emitted if `withKey` returns successfully without `reportUsage`.
-- If callback throws, missing `reportUsage` warning is not emitted.
+- Breaker blocks next request when usage is already at/over budget.
+- Runtime budget changes use `setMaxTokens(...)`.
+- Runtime changes are bounded by `hardMinTokens` / `hardMaxTokens` when configured.
+- Dev warning emitted if `withKey`/`withConfig` completes without `reportUsage`.
 
 ## Error Codes
 
@@ -82,19 +89,26 @@ Important options:
 - `INVALID_USAGE_REPORT`
 - `CIRCUIT_BREAKER_LIMIT`
 - `CIRCUIT_BREAKER_DISABLED`
+- `PASSKEY_NOT_SUPPORTED`
+- `PASSKEY_NOT_ENROLLED`
+- `PASSKEY_UNLOCK_FAILED`
 
 ## Correct Usage Pattern (Agent Guidance)
 
 1. Construct `BYOKVault`.
-2. Save key once via `setKey(...)`.
-3. Use `withKey(...)` around each provider call.
-4. Parse provider usage from response and call `reportUsage(tokens)` if breaker enabled.
-5. Use `nuke()` for full reset; use `lock()` for session-only lock.
+2. Persist config with one mode:
+   - passphrase: `setConfig(...)`
+   - passkey: `setConfigWithPasskey(...)`
+3. Unlock with matching mode (`unlock` or `unlockWithPasskey`) as needed.
+4. Call providers inside `withConfig` (or `withKey` for key-only code).
+5. Call `reportUsage(tokens)` when breaker is enabled.
+6. Use `lock()` for session lock and `nuke()` for full reset.
 
 ## Anti-Patterns (Do Not Generate)
 
 - Do not store plaintext API keys in storage.
-- Do not call `withKey` and omit `reportUsage` when `maxTokens` is configured.
+- Do not use `unlock(passphrase)` for passkey-enrolled vault blobs.
+- Do not call `withKey`/`withConfig` and omit `reportUsage` when breaker enabled.
 - Do not claim this library mitigates active XSS.
 - Do not set `pbkdf2Iterations < 200000`.
 

@@ -45,6 +45,8 @@ new BYOKVault(options?)
 - `lock(): void`
 - `nuke(): void`
 
+Passkey methods (`setConfigWithPasskey`, `unlockWithPasskey`) require a passkey-capable environment.
+
 ## Error Codes
 
 - `PASSPHRASE_POLICY`

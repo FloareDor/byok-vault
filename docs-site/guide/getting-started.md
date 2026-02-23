@@ -6,20 +6,27 @@
 npm install byok-vault
 ```
 
-## Basic Usage
+## Basic Usage (Passphrase)
 
 ```ts
 import { BYOKVault } from "byok-vault";
 
 const vault = new BYOKVault();
 
-await vault.setKey(userApiKey, userPassphrase);
+await vault.setConfig(
+  {
+    apiKey: userApiKey,
+    provider: "openai",
+    organizationId: userOrgId
+  },
+  userPassphrase
+);
 
-await vault.withKey(async (key) => {
+await vault.withConfig(async (config) => {
   await fetch("https://api.example.com/llm", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${key}`,
+      Authorization: `Bearer ${config.apiKey}`,
       "Content-Type": "application/json"
     },
     body: JSON.stringify({ prompt: "hello" })
@@ -27,11 +34,33 @@ await vault.withKey(async (key) => {
 });
 ```
 
+## Optional: Passkey Unlock (WebAuthn)
+
+```ts
+const vault = new BYOKVault();
+
+await vault.setConfigWithPasskey(
+  {
+    apiKey: userApiKey,
+    provider: "openai"
+  },
+  {
+    rpName: "Your App Name",
+    userName: currentUser.email
+  }
+);
+
+vault.lock();
+await vault.unlockWithPasskey();
+```
+
 ## Typical Flow
 
-1. Ask user for API key and passphrase.
-2. Save once with `setKey`.
-3. Use `withKey` for each provider call.
+1. Ask user for API config (`apiKey` plus optional metadata).
+2. Choose unlock mode:
+   - passphrase: `setConfig(...)`
+   - passkey: `setConfigWithPasskey(...)`
+3. Use `withConfig` (or `withKey`) for each provider call.
 4. Let user reset with `nuke()`.
 
 ::: details Optional: Add Token Budget (Circuit Breaker)
