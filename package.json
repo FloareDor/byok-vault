@@ -27,7 +27,6 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {},
   "devDependencies": {
     "@types/node": "^22.15.19",
     "jsdom": "^25.0.1",

@@ -100,6 +100,7 @@ export class BYOKVault {
       base64ToBytes(blob.salt),
       blob.iterations
     );
+    // sessionStorage caching is only for passphrase UX; it is not an extra security boundary.
     this.sessionCache.save({
       salt: blob.salt,
       iterations: blob.iterations,
