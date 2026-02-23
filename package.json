@@ -1,6 +1,6 @@
 {
   "name": "byok-vault",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Browser-native BYOK vault with encrypted storage and token circuit breaker.",
   "type": "module",
   "main": "dist/index.js",
