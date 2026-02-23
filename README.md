@@ -4,6 +4,10 @@
 [![license](https://img.shields.io/npm/l/byok-vault.svg)](./LICENSE)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/byok-vault)](https://bundlephobia.com/package/byok-vault)
 
+Building serverless AI apps still forces a bad tradeoff: run a backend only to hide API keys, or ask users to paste raw keys into a plaintext browser field.
+
+`byok-vault` is a tiny browser library that encrypts each user API key locally with a passphrase. Keys are only decrypted for the exact scope of an API call via `withKey(...)`, and an optional token circuit breaker helps prevent unbounded calls without user awareness.
+
 Browser-native BYOK vault for serverless/local-first AI apps.
 Docs site: https://floaredor.github.io/byok-vault/
 
