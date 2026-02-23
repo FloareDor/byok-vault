@@ -10,6 +10,7 @@ export default defineConfig({
       { text: "Get Started", link: "/guide/getting-started" },
       { text: "Comparison", link: "/guide/comparisons" },
       { text: "API", link: "/guide/api" },
+      { text: "LLM Docs", link: "/llms.txt" },
       { text: "GitHub", link: "https://github.com/FloareDor/byok-vault" }
     ],
     sidebar: [

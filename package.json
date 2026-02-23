@@ -24,8 +24,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pack:check": "node ./scripts/check-pack.mjs",
-    "docs:dev": "vitepress dev docs-site",
-    "docs:build": "vitepress build docs-site",
+    "docs:llm": "node ./scripts/generate-llm-docs.mjs",
+    "docs:dev": "npm run docs:llm && vitepress dev docs-site",
+    "docs:build": "npm run docs:llm && vitepress build docs-site",
     "docs:preview": "vitepress preview docs-site",
     "demo": "vite --config demo/vite.config.ts",
     "demo:build": "vite build --config demo/vite.config.ts"
