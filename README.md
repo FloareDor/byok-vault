@@ -22,6 +22,22 @@ If your threat model requires resistance to active injection attacks, use a serv
   - dev warning when `withKey` finishes without `reportUsage`.
 - `nuke()` reset flow to clear encrypted key and session state.
 
+## Why Use This
+
+Most BYOK apps choose between two bad defaults:
+
+- plaintext key entry in the browser (trust-killing UX), or
+- rolling custom client-side crypto where implementation mistakes are common.
+
+`byok-browser-vault` is useful when you want browser-native key handling with opinionated defaults:
+
+- encrypted-at-rest storage with per-key random salt and AES-GCM,
+- scoped key access (`withKey`) instead of wide key plumbing through app code,
+- built-in token budget circuit breaker (`requestedTokens` + `reportUsage`).
+
+Use this if your threat model is client-side BYOK with passive exposure concerns.  
+Do not use this as an active-XSS defense; use a server-side proxy for that.
+
 ## Install
 
 ```bash
