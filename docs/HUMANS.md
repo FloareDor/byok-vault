@@ -25,6 +25,7 @@ It is not a backend replacement for high-security threat models with active XSS 
 4. If breaker enabled, call `reportUsage(tokens)` after each successful response.
 5. Add reset UI with `nuke()` and optional session lock with `lock()`.
 6. Prefer `getState()` / `canCall()` for gating UI and API calls.
+7. Use `withKeyScope(...)` when your async flow needs unlock state across nested calls.
 
 ## Minimal Pattern (Passphrase)
 

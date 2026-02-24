@@ -347,6 +347,26 @@ export class BYOKVault {
     }
   }
 
+  async withKeyScope<T>(
+    callback: () => Promise<T> | T,
+    options: WithKeyOptions = {}
+  ): Promise<T> {
+    this.breaker?.assertCanProceed(options.requestedTokens);
+    const sessionMode = this.resolveSessionMode(options.session);
+    const blob = this.requireStoredBlob();
+    const cachedBits = this.sessionCache.load(blob.salt, blob.iterations);
+    const shouldRestoreLock = !cachedBits && sessionMode === "action";
+
+    await this.resolveDecryptedConfig(options.passphrase, "tab");
+    try {
+      return await callback();
+    } finally {
+      if (shouldRestoreLock) {
+        this.lock();
+      }
+    }
+  }
+
   reportUsage(tokens: number): void {
     if (!this.breaker) {
       throw new CircuitBreakerDisabledError();

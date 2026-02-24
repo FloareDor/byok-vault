@@ -410,6 +410,26 @@ describe("BYOKVault", () => {
     await expect(vault.withKey(async (key) => key)).resolves.toBe(API_KEY);
   });
 
+  it("supports Promise-lifetime unlock scopes", async () => {
+    const namespace = uniqueNamespace("with-key-scope");
+    const vault = new BYOKVault({ namespace, devMode: true });
+    await vault.setKey(API_KEY, PASSPHRASE);
+    vault.lock();
+
+    await vault.withKeyScope(
+      async () => {
+        expect(vault.isLocked()).toBe(false);
+        await expect(vault.withKey(async (key) => key)).resolves.toBe(API_KEY);
+      },
+      {
+        passphrase: PASSPHRASE,
+        session: "action"
+      }
+    );
+
+    expect(vault.isLocked()).toBe(true);
+  });
+
   it("supports passkey enrollment and unlock flow with metadata config", async () => {
     const namespace = uniqueNamespace("passkey-enroll-unlock");
     const adapter = new MockPasskeyAdapter();

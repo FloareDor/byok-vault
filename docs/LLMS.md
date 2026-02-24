@@ -58,6 +58,7 @@ Important options:
 - `unlockWithPasskey({ timeoutMs?, session? }?): Promise<void>`
 - `withKey(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
 - `withConfig(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
+- `withKeyScope(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
 - `reportUsage(tokens): void`
 - `getUsage(): number`
 - `getRemainingTokens(): number`
