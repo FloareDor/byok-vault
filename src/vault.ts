@@ -60,6 +60,11 @@ export interface UnlockWithPasskeyOptions {
   session?: VaultSessionMode;
 }
 
+export interface ImportKeyOptions {
+  clearStorageKey?: string;
+  plainStorage?: Storage;
+}
+
 export type VaultConfig = CryptoVaultConfig;
 export type VaultState = "none" | "locked" | "unlocked";
 export type VaultSessionMode = "tab" | "action";
@@ -103,6 +108,7 @@ function getRandomBytes(size: number): Uint8Array {
 
 export class BYOKVault {
   private readonly keyStorage: EncryptedKeyStorage;
+  private readonly localStorageRef: Storage;
   private readonly sessionCache: SessionKeyCache;
   private readonly minPassphraseLength: number;
   private readonly pbkdf2Iterations: number;
@@ -119,6 +125,7 @@ export class BYOKVault {
     const sessionStorage = resolveStorage("sessionStorage", options.sessionStorage);
     const keys = getStorageKeys(namespace);
 
+    this.localStorageRef = localStorage;
     this.keyStorage = new EncryptedKeyStorage(localStorage, keys.encryptedKey);
     this.sessionCache = new SessionKeyCache(sessionStorage, keys.sessionKey);
     this.minPassphraseLength = options.minPassphraseLength ?? DEFAULT_MIN_PASSPHRASE_LENGTH;
@@ -175,6 +182,18 @@ export class BYOKVault {
       throw new Error("apiKey cannot be empty.");
     }
     await this.setConfig({ apiKey }, passphrase);
+  }
+
+  async importKey(
+    plainKey: string,
+    passphrase: string,
+    options: ImportKeyOptions = {}
+  ): Promise<void> {
+    await this.setKey(plainKey, passphrase);
+    if (options.clearStorageKey) {
+      const plainStorage = options.plainStorage ?? this.localStorageRef;
+      plainStorage.removeItem(options.clearStorageKey);
+    }
   }
 
   async setConfig(config: VaultConfig, passphrase: string): Promise<void> {

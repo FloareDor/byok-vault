@@ -175,6 +175,19 @@ const output = response.usage?.output_tokens ?? 0;
 vault.reportUsage(input + output);
 ```
 
+## Plaintext Key Migration
+
+```ts
+const legacyStorageKey = "openai_api_key";
+const plainKey = localStorage.getItem(legacyStorageKey);
+
+if (plainKey) {
+  await vault.importKey(plainKey, userPassphrase, {
+    clearStorageKey: legacyStorageKey
+  });
+}
+```
+
 ## API
 
 ```ts
@@ -200,6 +213,7 @@ Options:
 Methods:
 
 - `setKey(apiKey, passphrase): Promise<void>`
+- `importKey(plainKey, passphrase, { clearStorageKey?, plainStorage? }?): Promise<void>`
 - `setConfig(config, passphrase): Promise<void>`
 - `setConfigWithPasskey(config, options): Promise<void>`
 - `unlock(passphrase, { session? }): Promise<void>`

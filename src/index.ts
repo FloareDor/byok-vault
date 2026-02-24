@@ -31,6 +31,7 @@ export type { EncryptedKeyBlob } from "./crypto.js";
 export type { PasskeyAdapter } from "./passkey.js";
 export type {
   BYOKVaultOptions,
+  ImportKeyOptions,
   SetConfigWithPasskeyOptions,
   UnlockWithPasskeyOptions,
   VaultConfig,

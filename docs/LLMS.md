@@ -51,6 +51,7 @@ Important options:
 ### Methods
 
 - `setKey(apiKey, passphrase): Promise<void>`
+- `importKey(plainKey, passphrase, { clearStorageKey?, plainStorage? }?): Promise<void>`
 - `setConfig(config, passphrase): Promise<void>`
 - `setConfigWithPasskey(config, options): Promise<void>`
 - `unlock(passphrase, { session? }?): Promise<void>`

@@ -20,6 +20,7 @@ It is not a backend replacement for high-security threat models with active XSS 
 2. Choose unlock mode:
    - passphrase: `setConfig(config, passphrase)`
    - passkey: `setConfigWithPasskey(config, options)`
+   - migration from plaintext key: `importKey(plainKey, passphrase, { clearStorageKey })`
 3. Run provider calls inside `withConfig(...)` or `withKey(...)`.
 4. If breaker enabled, call `reportUsage(tokens)` after each successful response.
 5. Add reset UI with `nuke()` and optional session lock with `lock()`.

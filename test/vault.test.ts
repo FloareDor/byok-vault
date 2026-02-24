@@ -395,6 +395,21 @@ describe("BYOKVault", () => {
     expect(vault.isLocked()).toBe(false);
   });
 
+  it("imports a plain key and clears legacy storage key", async () => {
+    const namespace = uniqueNamespace("import-key");
+    const legacyPlainKeyStorage = `${namespace}:legacy-plain-key`;
+    localStorage.setItem(legacyPlainKeyStorage, API_KEY);
+
+    const vault = new BYOKVault({ namespace, devMode: true });
+    await vault.importKey(API_KEY, PASSPHRASE, {
+      clearStorageKey: legacyPlainKeyStorage
+    });
+
+    expect(localStorage.getItem(legacyPlainKeyStorage)).toBeNull();
+    expect(vault.hasStoredKey()).toBe(true);
+    await expect(vault.withKey(async (key) => key)).resolves.toBe(API_KEY);
+  });
+
   it("supports passkey enrollment and unlock flow with metadata config", async () => {
     const namespace = uniqueNamespace("passkey-enroll-unlock");
     const adapter = new MockPasskeyAdapter();
