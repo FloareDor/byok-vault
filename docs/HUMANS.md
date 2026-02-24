@@ -121,6 +121,34 @@ function VaultGate({ vault, children }: { vault: BYOKVault; children: React.Reac
 }
 ```
 
+## React Pattern: `useVaultState`
+
+```tsx
+function useVaultState(vault: BYOKVault) {
+  const [state, setState] = useState(vault.getState());
+
+  const refresh = useCallback(() => setState(vault.getState()), [vault]);
+
+  const unlock = useCallback(
+    async (passphrase: string, session: "tab" | "action" = "tab") => {
+      await vault.unlock(passphrase, { session });
+      refresh();
+    },
+    [vault, refresh]
+  );
+
+  const setConfig = useCallback(
+    async (config: VaultConfig, passphrase: string) => {
+      await vault.setConfig(config, passphrase);
+      refresh();
+    },
+    [vault, refresh]
+  );
+
+  return { state, canCall: state === "unlocked", unlock, setConfig, refresh };
+}
+```
+
 ## React Pattern: First-Time Setup
 
 ```tsx
@@ -145,6 +173,16 @@ async function saveFirstConfig(vault: BYOKVault, input: {
 - If hostile JS executes in your origin, it can still intercept keys in-flight.
 - Decrypted strings can remain in JS memory until garbage collection.
 - This package is not formally audited.
+
+## Notes for Migration and Streaming
+
+- Plain key in JSON config: extract and import only `apiKey`, then rewrite config without that field.
+- Prefer checklist for plaintext migration:
+  1. detect legacy key
+  2. prompt passphrase
+  3. call `importKey`
+  4. clear legacy plaintext key
+- `withKeyScope(...)` keeps key availability for callback Promise lifetime, not async-generator `yield` lifetime.
 
 ## Error Handling You Should Surface
 

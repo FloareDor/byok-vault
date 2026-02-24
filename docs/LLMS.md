@@ -22,6 +22,7 @@ Machine-oriented reference for code assistants and agents.
 - No defense against active XSS in same origin.
 - No hard provider SDK integrations.
 - No authoritative token accounting without `reportUsage(tokens)`.
+- `withKeyScope(...)` keeps Promise-lifetime unlock scope; it does not itself enable async-generator `yield` streaming.
 
 ## Canonical API Contracts
 
@@ -109,6 +110,7 @@ Important options:
 5. Call `reportUsage(tokens)` when breaker is enabled.
 6. Use `lock()` for session lock and `nuke()` for full reset.
 7. Prefer `getState()` for UI gate logic (`none` -> setup, `locked` -> unlock, `unlocked` -> app).
+8. For plaintext migration: detect legacy key, prompt passphrase, call `importKey`, then clear only legacy key field.
 
 ## Anti-Patterns (Do Not Generate)
 

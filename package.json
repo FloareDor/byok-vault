@@ -1,6 +1,6 @@
 {
   "name": "byok-vault",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Browser-native BYOK vault with encrypted storage and token circuit breaker.",
   "type": "module",
   "main": "dist/index.js",
@@ -20,10 +20,12 @@
   "scripts": {
     "build": "npm run build:lib",
     "build:lib": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build && npm run api:check",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "pack:check": "node ./scripts/check-pack.mjs",
+    "api:check": "node ./scripts/check-api-parity.mjs",
+    "pack:check": "node ./scripts/check-pack.mjs && npm run api:check",
     "docs:llm": "node ./scripts/generate-llm-docs.mjs",
     "docs:dev": "npm run docs:llm && vitepress dev docs-site",
     "docs:build": "npm run docs:llm && vitepress build docs-site",

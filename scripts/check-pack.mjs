@@ -17,10 +17,13 @@ function runNpm(args) {
 
 function runPackDryRun() {
   const stdout = runNpm(["pack", "--json", "--dry-run"]);
+  const trimmed = stdout.trim();
+  const jsonStart = trimmed.lastIndexOf("\n[");
+  const candidate = jsonStart >= 0 ? trimmed.slice(jsonStart + 1) : trimmed;
 
   let parsed;
   try {
-    parsed = JSON.parse(stdout);
+    parsed = JSON.parse(candidate);
   } catch {
     throw new Error(`Unable to parse npm pack --json output:\n${stdout}`);
   }

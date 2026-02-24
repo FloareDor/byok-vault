@@ -19,18 +19,21 @@ new BYOKVault(options?)
 - `sessionStorage?: Storage`
 - `logger?: { warn(message: string): void }`
 - `passkeyAdapter?: PasskeyAdapter`
+- `sessionMode?: "tab" | "action"`
 
 `hardMinTokens` / `hardMaxTokens` require `maxTokens`.
 
 ## Methods
 
 - `setKey(apiKey, passphrase): Promise<void>`
+- `importKey(plainKey, passphrase, { clearStorageKey?, plainStorage? }?): Promise<void>`
 - `setConfig(config, passphrase): Promise<void>`
 - `setConfigWithPasskey(config, options): Promise<void>`
-- `unlock(passphrase): Promise<void>`
+- `unlock(passphrase, { session? }?): Promise<void>`
 - `unlockWithPasskey(options?): Promise<void>`
-- `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
-- `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
+- `withKey(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
+- `withConfig(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
+- `withKeyScope(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
 - `reportUsage(tokens): void`
 - `getUsage(): number`
 - `getRemainingTokens(): number`
@@ -39,11 +42,19 @@ new BYOKVault(options?)
 - `getHardMinTokens(): number | null`
 - `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
+- `getState(): "none" | "locked" | "unlocked"`
+- `canCall(): boolean`
 - `isPasskeyEnrolled(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`
 - `lock(): void`
 - `nuke(): void`
+
+## Notes
+
+- `sessionMode: "tab"` keeps unlock state in `sessionStorage` for the current tab session.
+- `sessionMode: "action"` requires passphrase/passkey per action unless explicitly overridden.
+- `withKeyScope(...)` keeps key material available for callback Promise lifetime; it does not provide async-generator `yield` semantics by itself.
 
 Passkey methods (`setConfigWithPasskey`, `unlockWithPasskey`) require a passkey-capable environment.
 

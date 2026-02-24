@@ -188,6 +188,25 @@ if (plainKey) {
 }
 ```
 
+Migration checklist:
+
+1. Detect legacy plaintext key in storage.
+2. Prompt user for passphrase.
+3. Call `importKey(plainKey, passphrase)`.
+4. Remove only legacy plaintext key storage.
+
+If plaintext key is nested inside JSON config, extract only that field and keep the rest:
+
+```ts
+const configStorageKey = "model_settings";
+const config = JSON.parse(localStorage.getItem(configStorageKey) ?? "{}");
+if (typeof config.apiKey === "string" && config.apiKey.length > 0) {
+  await vault.importKey(config.apiKey, userPassphrase);
+  delete config.apiKey;
+  localStorage.setItem(configStorageKey, JSON.stringify(config));
+}
+```
+
 ## Stream-Friendly Scope Pattern
 
 ```ts
@@ -198,6 +217,36 @@ await vault.withKeyScope(
     session: "action"
   }
 );
+```
+
+`withKeyScope` keeps unlock state for the Promise lifetime of the callback. It does not turn the callback into an async generator context, so you cannot `yield` from inside that callback. For true streaming UIs, start the stream inside the scope and forward chunks outside it (for example through events/queue/state updates).
+
+## React Helper Pattern
+
+```tsx
+function useVaultState(vault: BYOKVault) {
+  const [state, setState] = useState(vault.getState());
+
+  const refresh = useCallback(() => setState(vault.getState()), [vault]);
+
+  const unlock = useCallback(
+    async (passphrase: string, session: "tab" | "action" = "tab") => {
+      await vault.unlock(passphrase, { session });
+      refresh();
+    },
+    [vault, refresh]
+  );
+
+  const setConfig = useCallback(
+    async (config: VaultConfig, passphrase: string) => {
+      await vault.setConfig(config, passphrase);
+      refresh();
+    },
+    [vault, refresh]
+  );
+
+  return { state, canCall: state === "unlocked", unlock, setConfig, refresh };
+}
 ```
 
 ## API
