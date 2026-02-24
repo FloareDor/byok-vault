@@ -75,6 +75,7 @@ await vault.unlockWithPasskey();
 
 - Show one clear choice: unlock with passphrase or unlock with passkey.
 - If passkey is unavailable, keep passphrase fallback visible.
+- Pick a session strategy: `tab` for smoother UX, `action` for stricter re-auth prompts.
 - Explain limits clearly: this protects data at rest, not active in-origin XSS.
 - If breaker is enabled, display usage and remaining tokens.
 - Provide visible controls for `lock()` and `nuke()`.

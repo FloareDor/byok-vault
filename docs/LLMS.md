@@ -44,6 +44,7 @@ Important options:
 - `sessionStorage?: Storage`
 - `passkeyAdapter?: PasskeyAdapter`
 - `logger?: { warn(message: string): void }`
+- `sessionMode?: "tab" | "action"`
 
 `hardMinTokens` / `hardMaxTokens` require `maxTokens`.
 
@@ -52,10 +53,10 @@ Important options:
 - `setKey(apiKey, passphrase): Promise<void>`
 - `setConfig(config, passphrase): Promise<void>`
 - `setConfigWithPasskey(config, options): Promise<void>`
-- `unlock(passphrase): Promise<void>`
-- `unlockWithPasskey(options?): Promise<void>`
-- `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
-- `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
+- `unlock(passphrase, { session? }?): Promise<void>`
+- `unlockWithPasskey({ timeoutMs?, session? }?): Promise<void>`
+- `withKey(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
+- `withConfig(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
 - `reportUsage(tokens): void`
 - `getUsage(): number`
 - `getRemainingTokens(): number`

@@ -34,6 +34,7 @@ export type {
   SetConfigWithPasskeyOptions,
   UnlockWithPasskeyOptions,
   VaultConfig,
+  VaultSessionMode,
   VaultState,
   WithKeyOptions
 } from "./vault.js";

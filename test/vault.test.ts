@@ -368,6 +368,33 @@ describe("BYOKVault", () => {
     expect(vault.canCall()).toBe(false);
   });
 
+  it("supports explicit session modes for unlock persistence", async () => {
+    const namespace = uniqueNamespace("session-mode");
+    const vault = new BYOKVault({
+      namespace,
+      devMode: true,
+      sessionMode: "action"
+    });
+
+    await vault.setKey(API_KEY, PASSPHRASE);
+    expect(vault.isLocked()).toBe(true);
+
+    await expect(vault.withKey(async () => "nope")).rejects.toBeInstanceOf(VaultLockedError);
+    await expect(
+      vault.withKey(async (key) => key, {
+        passphrase: PASSPHRASE,
+        session: "action"
+      })
+    ).resolves.toBe(API_KEY);
+    expect(vault.isLocked()).toBe(true);
+
+    await vault.unlock(PASSPHRASE);
+    expect(vault.isLocked()).toBe(true);
+
+    await vault.unlock(PASSPHRASE, { session: "tab" });
+    expect(vault.isLocked()).toBe(false);
+  });
+
   it("supports passkey enrollment and unlock flow with metadata config", async () => {
     const namespace = uniqueNamespace("passkey-enroll-unlock");
     const adapter = new MockPasskeyAdapter();

@@ -43,6 +43,7 @@ interface ScopeState {
 export interface WithKeyOptions {
   requestedTokens?: number;
   passphrase?: string;
+  session?: VaultSessionMode;
 }
 
 export interface SetConfigWithPasskeyOptions {
@@ -56,10 +57,12 @@ export interface SetConfigWithPasskeyOptions {
 
 export interface UnlockWithPasskeyOptions {
   timeoutMs?: number;
+  session?: VaultSessionMode;
 }
 
 export type VaultConfig = CryptoVaultConfig;
 export type VaultState = "none" | "locked" | "unlocked";
+export type VaultSessionMode = "tab" | "action";
 
 export interface BYOKVaultOptions {
   namespace?: string;
@@ -73,6 +76,7 @@ export interface BYOKVaultOptions {
   sessionStorage?: Storage;
   passkeyAdapter?: PasskeyAdapter;
   logger?: Pick<Console, "warn">;
+  sessionMode?: VaultSessionMode;
 }
 
 function inferDevMode(): boolean {
@@ -106,6 +110,7 @@ export class BYOKVault {
   private readonly passkeyAdapter: PasskeyAdapter;
   private readonly devMode: boolean;
   private readonly logger: Pick<Console, "warn">;
+  private readonly defaultSessionMode: VaultSessionMode;
   private readonly scopes: ScopeState[] = [];
 
   constructor(options: BYOKVaultOptions = {}) {
@@ -137,6 +142,13 @@ export class BYOKVault {
     this.devMode = options.devMode ?? inferDevMode();
     this.logger = options.logger ?? console;
     this.passkeyAdapter = options.passkeyAdapter ?? createBrowserPasskeyAdapter();
+    this.defaultSessionMode = options.sessionMode ?? "tab";
+    if (
+      this.defaultSessionMode !== "tab" &&
+      this.defaultSessionMode !== "action"
+    ) {
+      throw new Error("sessionMode must be either 'tab' or 'action'.");
+    }
 
     if (
       options.maxTokens === undefined &&
@@ -177,12 +189,7 @@ export class BYOKVault {
       base64ToBytes(blob.salt),
       blob.iterations
     );
-    // sessionStorage caching is only for passphrase UX; it is not an extra security boundary.
-    this.sessionCache.save({
-      salt: blob.salt,
-      iterations: blob.iterations,
-      keyBits
-    });
+    this.saveSessionCache(blob, keyBits, this.defaultSessionMode);
 
     this.breaker?.reset();
   }
@@ -238,7 +245,7 @@ export class BYOKVault {
     this.breaker?.reset();
   }
 
-  async unlock(passphrase: string): Promise<void> {
+  async unlock(passphrase: string, options: { session?: VaultSessionMode } = {}): Promise<void> {
     this.assertPassphrase(passphrase);
     const blob = this.requireStoredBlob();
     if (blob.version === 3) {
@@ -248,7 +255,7 @@ export class BYOKVault {
     }
     const keyBits = await deriveKeyBits(passphrase, base64ToBytes(blob.salt), blob.iterations);
     const { blob: activeBlob } = await this.decryptConfigAndMaybeMigrate(blob, keyBits);
-    this.saveSessionCache(activeBlob, keyBits);
+    this.saveSessionCache(activeBlob, keyBits, this.resolveSessionMode(options.session));
   }
 
   async unlockWithPasskey(options: UnlockWithPasskeyOptions = {}): Promise<void> {
@@ -282,7 +289,7 @@ export class BYOKVault {
       }
       throw error;
     }
-    this.saveSessionCache(blob, keyBits);
+    this.saveSessionCache(blob, keyBits, this.resolveSessionMode(options.session));
   }
 
   async withKey<T>(
@@ -304,7 +311,10 @@ export class BYOKVault {
     try {
       // If malicious script runs in-origin (XSS), it can still read this value in-flight.
       // This API narrows exposure windows; it does not eliminate active injection risk.
-      const decryptedConfig = await this.resolveDecryptedConfig(options.passphrase);
+      const decryptedConfig = await this.resolveDecryptedConfig(
+        options.passphrase,
+        options.session
+      );
       const result = await callback(decryptedConfig);
       callbackCompleted = true;
       return result;
@@ -425,7 +435,15 @@ export class BYOKVault {
     }
   }
 
-  private saveSessionCache(blob: EncryptedKeyBlob, keyBits: Uint8Array): void {
+  private saveSessionCache(
+    blob: EncryptedKeyBlob,
+    keyBits: Uint8Array,
+    mode: VaultSessionMode = "tab"
+  ): void {
+    if (mode === "action") {
+      this.sessionCache.clear();
+      return;
+    }
     // sessionStorage caching is only for passphrase UX; it is not an extra security boundary.
     this.sessionCache.save({
       salt: blob.salt,
@@ -451,7 +469,11 @@ export class BYOKVault {
     return { config, blob: migrated };
   }
 
-  private async resolveDecryptedConfig(passphrase?: string): Promise<VaultConfig> {
+  private async resolveDecryptedConfig(
+    passphrase?: string,
+    sessionModeOverride?: VaultSessionMode
+  ): Promise<VaultConfig> {
+    const sessionMode = this.resolveSessionMode(sessionModeOverride);
     const blob = this.requireStoredBlob();
     const cachedBits = this.sessionCache.load(blob.salt, blob.iterations);
     if (cachedBits) {
@@ -485,7 +507,15 @@ export class BYOKVault {
       blob.iterations
     );
     const { config, blob: activeBlob } = await this.decryptConfigAndMaybeMigrate(blob, keyBits);
-    this.saveSessionCache(activeBlob, keyBits);
+    this.saveSessionCache(activeBlob, keyBits, sessionMode);
     return config;
+  }
+
+  private resolveSessionMode(mode?: VaultSessionMode): VaultSessionMode {
+    const resolved = mode ?? this.defaultSessionMode;
+    if (resolved !== "tab" && resolved !== "action") {
+      throw new Error("session mode must be either 'tab' or 'action'.");
+    }
+    return resolved;
   }
 }

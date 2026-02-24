@@ -193,6 +193,7 @@ Options:
 - `localStorage?: Storage` / `sessionStorage?: Storage` for testing/custom storage
 - `logger?: { warn(message: string): void }` custom warning sink
 - `passkeyAdapter?: PasskeyAdapter` optional WebAuthn adapter override (for custom environments/tests)
+- `sessionMode?: "tab" | "action"` default unlock persistence mode (`tab` keeps session unlocked, `action` requires passphrase/passkey per action)
 
 `hardMinTokens` / `hardMaxTokens` require `maxTokens` to be set.
 
@@ -201,10 +202,10 @@ Methods:
 - `setKey(apiKey, passphrase): Promise<void>`
 - `setConfig(config, passphrase): Promise<void>`
 - `setConfigWithPasskey(config, options): Promise<void>`
-- `unlock(passphrase): Promise<void>`
-- `unlockWithPasskey(options?): Promise<void>`
-- `withKey(callback, { requestedTokens?, passphrase? }): Promise<T>`
-- `withConfig(callback, { requestedTokens?, passphrase? }): Promise<T>`
+- `unlock(passphrase, { session? }): Promise<void>`
+- `unlockWithPasskey({ timeoutMs?, session? }?): Promise<void>`
+- `withKey(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
+- `withConfig(callback, { requestedTokens?, passphrase?, session? }): Promise<T>`
 - `reportUsage(tokens): void`
 - `getUsage(): number`
 - `getRemainingTokens(): number`
