@@ -59,6 +59,7 @@ export interface UnlockWithPasskeyOptions {
 }
 
 export type VaultConfig = CryptoVaultConfig;
+export type VaultState = "none" | "locked" | "unlocked";
 
 export interface BYOKVaultOptions {
   namespace?: string;
@@ -359,17 +360,25 @@ export class BYOKVault {
     return this.keyStorage.get() !== null;
   }
 
+  getState(): VaultState {
+    const blob = this.keyStorage.get();
+    if (!blob) {
+      return "none";
+    }
+    return this.sessionCache.load(blob.salt, blob.iterations) ? "unlocked" : "locked";
+  }
+
+  canCall(): boolean {
+    return this.getState() === "unlocked";
+  }
+
   isPasskeyEnrolled(): boolean {
     const blob = this.keyStorage.get();
     return blob?.version === 3;
   }
 
   isLocked(): boolean {
-    const blob = this.keyStorage.get();
-    if (!blob) {
-      return true;
-    }
-    return this.sessionCache.load(blob.salt, blob.iterations) === null;
+    return this.getState() !== "unlocked";
   }
 
   getEncryptedBlob(): EncryptedKeyBlob | null {

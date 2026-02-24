@@ -213,6 +213,8 @@ Methods:
 - `getHardMinTokens(): number | null`
 - `getHardMaxTokens(): number | null`
 - `hasStoredKey(): boolean`
+- `getState(): "none" | "locked" | "unlocked"`
+- `canCall(): boolean`
 - `isPasskeyEnrolled(): boolean`
 - `isLocked(): boolean`
 - `getEncryptedBlob(): EncryptedKeyBlob | null`

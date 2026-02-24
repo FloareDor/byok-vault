@@ -344,6 +344,30 @@ describe("BYOKVault", () => {
     await expect(decryptKey(blob!, PASSPHRASE)).resolves.toBe(API_KEY);
   });
 
+  it("exposes unified state and canCall helpers", async () => {
+    const namespace = uniqueNamespace("state-helpers");
+    const vault = new BYOKVault({ namespace, devMode: true });
+
+    expect(vault.getState()).toBe("none");
+    expect(vault.canCall()).toBe(false);
+
+    await vault.setKey(API_KEY, PASSPHRASE);
+    expect(vault.getState()).toBe("unlocked");
+    expect(vault.canCall()).toBe(true);
+
+    vault.lock();
+    expect(vault.getState()).toBe("locked");
+    expect(vault.canCall()).toBe(false);
+
+    await vault.unlock(PASSPHRASE);
+    expect(vault.getState()).toBe("unlocked");
+    expect(vault.canCall()).toBe(true);
+
+    vault.nuke();
+    expect(vault.getState()).toBe("none");
+    expect(vault.canCall()).toBe(false);
+  });
+
   it("supports passkey enrollment and unlock flow with metadata config", async () => {
     const namespace = uniqueNamespace("passkey-enroll-unlock");
     const adapter = new MockPasskeyAdapter();
