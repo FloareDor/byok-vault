@@ -82,6 +82,63 @@ await vault.unlockWithPasskey();
 - If breaker is enabled, display usage and remaining tokens.
 - Provide visible controls for `lock()` and `nuke()`.
 
+## React Pattern: Vault Gate
+
+```tsx
+function VaultGate({ vault, children }: { vault: BYOKVault; children: React.ReactNode }) {
+  const [state, setState] = useState(vault.getState());
+  const [passphrase, setPassphrase] = useState("");
+
+  useEffect(() => {
+    setState(vault.getState());
+  }, [vault]);
+
+  if (state === "none") {
+    return <p>Set up your API key first.</p>;
+  }
+
+  if (state === "locked") {
+    return (
+      <form
+        onSubmit={async (event) => {
+          event.preventDefault();
+          await vault.unlock(passphrase, { session: "tab" });
+          setState(vault.getState());
+        }}
+      >
+        <input
+          value={passphrase}
+          onChange={(event) => setPassphrase(event.target.value)}
+          placeholder="Passphrase"
+          type="password"
+        />
+        <button type="submit">Unlock</button>
+      </form>
+    );
+  }
+
+  return <>{children}</>;
+}
+```
+
+## React Pattern: First-Time Setup
+
+```tsx
+async function saveFirstConfig(vault: BYOKVault, input: {
+  apiKey: string;
+  provider: string;
+  passphrase: string;
+}) {
+  await vault.setConfig(
+    {
+      apiKey: input.apiKey,
+      provider: input.provider
+    },
+    input.passphrase
+  );
+}
+```
+
 ## Security Boundaries (Plain English)
 
 - `sessionStorage` caching is convenience only, not stronger security.

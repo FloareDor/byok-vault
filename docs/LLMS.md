@@ -108,6 +108,7 @@ Important options:
 4. Call providers inside `withConfig` (or `withKey` for key-only code).
 5. Call `reportUsage(tokens)` when breaker is enabled.
 6. Use `lock()` for session lock and `nuke()` for full reset.
+7. Prefer `getState()` for UI gate logic (`none` -> setup, `locked` -> unlock, `unlocked` -> app).
 
 ## Anti-Patterns (Do Not Generate)
 
